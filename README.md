@@ -12,8 +12,9 @@ full product spec and principles.
 - **Node.js (ESM)**, no build step.
 - **SQLite** via `better-sqlite3` — single inspectable file in `data/`.
 - **RSS** via `rss-parser`; **full-text extraction** via `@mozilla/readability` + `jsdom`.
-- **Summarization** via the Anthropic API (`@anthropic-ai/sdk`) — two calls per
-  article, and **stubbed by default so the whole pipeline runs with no API key**.
+- **Summarization** via Google Gemini (`@google/genai`, free tier) or Anthropic
+  Claude (`@anthropic-ai/sdk`, paid) — two calls per article, and **stubbed by
+  default so the whole pipeline runs with no API key**.
 - **Static site**: `public/index.html` regenerated every ingestion cycle. A
   dependency-free preview server serves it locally.
 - **Scheduling** via `node-cron`.
@@ -49,12 +50,24 @@ One ingestion cycle (`npm run ingest`, or every `INGEST_INTERVAL_MIN` under
    split is the copyright-safety mechanism, not just a nice-to-have.
 6. **Publish**: insert into `articles`, regenerate `public/index.html`.
 
-### Stub vs. live LLM
+### Stub vs. Gemini vs. Anthropic
 
-With no `ANTHROPIC_API_KEY`, the two LLM calls return deterministic placeholder
-output (clearly marked), so the full ingest→publish cycle runs offline and the
-site renders real feed data. Set `ANTHROPIC_API_KEY` and `LLM_MODE=live` in
-`.env` to switch to real Claude summaries — no code changes.
+`LLM_MODE` selects which of the two LLM calls run:
+
+- `stub` (default, no key) — deterministic placeholder output (clearly
+  marked), so the full ingest→publish cycle runs offline.
+- `gemini` — real Google Gemini summaries. Free tier, no card required — get a
+  key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and
+  set `GEMINI_API_KEY` + `LLM_MODE=gemini`. Defaults to the current
+  "flash-lite" model for the best free daily quota; Google periodically
+  retires older flash-lite versions, so if requests start 404ing, list what
+  your key can actually call and update `GEMINI_MODEL` in `.env`:
+  `curl "https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY"`
+- `live` — real Anthropic Claude summaries (paid; no standing free tier). Set
+  `ANTHROPIC_API_KEY` + `LLM_MODE=live`.
+
+If the selected mode's key is missing, the app falls back to `stub` rather
+than crashing. Switching modes is a `.env` change only — no code changes.
 
 ## Configuration
 
@@ -77,7 +90,7 @@ src/config.js          Env-driven config
 src/sources.js         Source seed list (HR + world)
 src/db/                SQLite connection, migration, queries
 src/pipeline/          fetchFeeds, filter, extractText, extractFacts, writeSummary, run
-src/llm/               Anthropic client, prompts, deterministic stub
+src/llm/               Gemini + Anthropic clients, prompts, deterministic stub
 src/publish/           Static HTML generator + templates
 src/scheduler.js       node-cron loop (npm start)
 src/serve.js           node:http static preview server
@@ -88,5 +101,6 @@ test/                  Unit tests for filter + dedupe
 ## Status
 
 v1 scaffold: working RSS ingest → SQLite → static publish, with the LLM steps
-stubbed. Live Anthropic summarization is wired but off by default. See the
-"v2+ ideas" and "Open questions" sections of `CLAUDE.md` for what's next.
+stubbed. Live Gemini (free tier) and Anthropic summarization are both wired
+but off by default. See the "v2+ ideas" and "Open questions" sections of
+`CLAUDE.md` for what's next.

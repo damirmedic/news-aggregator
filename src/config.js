@@ -15,17 +15,26 @@ const num = (value, fallback) => {
 };
 
 const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+const geminiApiKey = (process.env.GEMINI_API_KEY || '').trim();
 
-// If there's no key we can't talk to Anthropic, so force stub mode regardless
-// of what LLM_MODE says. This is what lets the whole pipeline run key-less.
+// If the requested mode's key is missing, fall back to stub rather than
+// crashing at request time. This is what lets the whole pipeline run key-less.
 const requestedMode = (process.env.LLM_MODE || 'stub').trim().toLowerCase();
-const llmMode = apiKey && requestedMode === 'live' ? 'live' : 'stub';
+let llmMode = 'stub';
+if (requestedMode === 'live' && apiKey) llmMode = 'live';
+else if (requestedMode === 'gemini' && geminiApiKey) llmMode = 'gemini';
 
 export const config = {
   llm: {
-    mode: llmMode, // 'stub' | 'live'
+    mode: llmMode, // 'stub' | 'live' (Anthropic) | 'gemini'
     apiKey,
     model: (process.env.ANTHROPIC_MODEL || 'claude-sonnet-5').trim(),
+    geminiApiKey,
+    // Free-tier-friendly default. Verified against the live API - older
+    // "flash-lite" models return 404/quota-0 for new accounts as Google
+    // retires them, so re-check available models if this starts failing:
+    // https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
+    geminiModel: (process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite').trim(),
   },
   selection: {
     // World/EU items must score >= this (0-10) to be published (90/10 split).

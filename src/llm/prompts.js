@@ -11,6 +11,8 @@ export function factExtractionPrompt({ title, bodyText, category }) {
     'You are a fact extractor for a news wire. You read one article and output',
     'a structured JSON list of the verifiable facts it contains. You never copy',
     'the article\'s sentence structure or wording — you extract facts only.',
+    'Write every string value in Croatian (hrvatski), regardless of the',
+    'article\'s source language — the output feeds a Croatian-language site.',
     'Output ONLY valid JSON, no prose, no code fences.',
   ].join(' ');
 
@@ -48,8 +50,11 @@ export function factExtractionPrompt({ title, bodyText, category }) {
 /** Build the summary-writing prompt (LLM call 2). Sees facts only. */
 export function summaryPrompt({ facts, sourceName, category }) {
   const system = [
-    'You are an old-school wire-service reporter. From a structured fact-list',
-    '(never any original article text), you write a plain, factual summary.',
+    'You are an old-school wire-service reporter writing for a Croatian news',
+    'site. From a structured fact-list (never any original article text), you',
+    'write a plain, factual summary IN CROATIAN (hrvatski), always — the',
+    'site\'s entire audience is Croatian, regardless of the story\'s origin or',
+    'the language of the facts you were given.',
     'No clickbait, no rhetorical questions, no emotional or sensational framing,',
     'no speculation, no editorializing. Inverted pyramid: most important first.',
     'Output ONLY valid JSON, no prose, no code fences.',
@@ -61,7 +66,7 @@ export function summaryPrompt({ facts, sourceName, category }) {
     'FACTS (JSON):',
     JSON.stringify(facts, null, 2),
     '',
-    'Write, in the same language as the facts, and return JSON:',
+    'Write in Croatian (hrvatski) and return JSON:',
     '{',
     '  "headline": string,      // <= ~12 words; subject + verb + object; plain, no wordplay',
     '  "subheadline": string,   // one sentence; the second most important fact',

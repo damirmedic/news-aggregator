@@ -1,7 +1,9 @@
-// LLM dispatcher: exposes the two pipeline operations and routes each to either
-// the deterministic stub (no key) or the live Anthropic API (LLM_MODE=live).
-// Callers (pipeline/*) don't know or care which mode is active.
+// LLM dispatcher: exposes the two pipeline operations and routes each to the
+// deterministic stub (no key), the Gemini API (LLM_MODE=gemini — free tier),
+// or the Anthropic API (LLM_MODE=live). Callers (pipeline/*) don't know or
+// care which mode is active.
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenAI } from '@google/genai';
 import { config } from '../config.js';
 import { factExtractionPrompt, summaryPrompt } from './prompts.js';
 import { extractFactsStub, writeSummaryStub } from './stub.js';
@@ -12,15 +14,21 @@ function getAnthropic() {
   return anthropic;
 }
 
+let gemini;
+function getGemini() {
+  if (!gemini) gemini = new GoogleGenAI({ apiKey: config.llm.geminiApiKey });
+  return gemini;
+}
+
 export function isLive() {
-  return config.llm.mode === 'live';
+  return config.llm.mode !== 'stub';
 }
 
 /**
  * Call Anthropic with a system+user prompt and parse a single JSON object out
  * of the reply. Tolerates accidental code fences / surrounding prose.
  */
-async function completeJson({ system, user, maxTokens }) {
+async function completeJsonAnthropic({ system, user, maxTokens }) {
   const res = await getAnthropic().messages.create({
     model: config.llm.model,
     max_tokens: maxTokens,
@@ -34,6 +42,19 @@ async function completeJson({ system, user, maxTokens }) {
   return parseJsonObject(text);
 }
 
+/** Call Gemini with a system+user prompt, requesting JSON output directly. */
+async function completeJsonGemini({ system, user }) {
+  const res = await getGemini().models.generateContent({
+    model: config.llm.geminiModel,
+    contents: user,
+    config: {
+      systemInstruction: system,
+      responseMimeType: 'application/json',
+    },
+  });
+  return parseJsonObject(res.text);
+}
+
 function parseJsonObject(text) {
   const fenced = text.replace(/```(?:json)?/gi, '');
   const start = fenced.indexOf('{');
@@ -44,16 +65,21 @@ function parseJsonObject(text) {
   return JSON.parse(fenced.slice(start, end + 1));
 }
 
+async function completeJson({ system, user }) {
+  if (config.llm.mode === 'gemini') return completeJsonGemini({ system, user });
+  return completeJsonAnthropic({ system, user, maxTokens: 1500 });
+}
+
 /** LLM call 1 — extract structured facts (+ world importance) from body. */
 export async function extractFacts({ title, bodyText, category }) {
   if (!isLive()) return extractFactsStub({ title, bodyText, category });
   const { system, user } = factExtractionPrompt({ title, bodyText, category });
-  return completeJson({ system, user, maxTokens: 1500 });
+  return completeJson({ system, user });
 }
 
 /** LLM call 2 — write a plain summary from facts only. */
 export async function writeSummary({ facts, sourceName, category }) {
   if (!isLive()) return writeSummaryStub({ facts, sourceName });
   const { system, user } = summaryPrompt({ facts, sourceName, category });
-  return completeJson({ system, user, maxTokens: 1500 });
+  return completeJson({ system, user });
 }
