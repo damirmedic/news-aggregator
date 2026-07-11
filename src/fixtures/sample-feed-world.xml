@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Sample Wire — World</title>
+    <link>https://example-wire.test/</link>
+    <description>Bundled fixture world feed for offline ingest runs.</description>
+    <item>
+      <title>European Union agrees new common asylum and migration rules</title>
+      <link>https://example-wire.test/world/eu-migration-pact</link>
+      <pubDate>Sat, 11 Jul 2026 08:00:00 +0000</pubDate>
+      <guid>https://example-wire.test/world/eu-migration-pact</guid>
+    </item>
+    <item>
+      <title>Central banks signal steady rates amid slowing global growth</title>
+      <link>https://example-wire.test/world/central-banks-rates</link>
+      <pubDate>Sat, 11 Jul 2026 07:30:00 +0000</pubDate>
+      <guid>https://example-wire.test/world/central-banks-rates</guid>
+    </item>
+    <item>
+      <title>Minor celebrity gossip item unlikely to matter to Croatian readers</title>
+      <link>https://example-wire.test/world/celebrity-gossip</link>
+      <pubDate>Sat, 11 Jul 2026 07:15:00 +0000</pubDate>
+      <guid>https://example-wire.test/world/celebrity-gossip</guid>
+    </item>
+  </channel>
+</rss>

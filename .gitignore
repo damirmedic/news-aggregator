@@ -1,0 +1,14 @@
+node_modules/
+.env
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Generated static site output (regenerated every ingestion cycle).
+# Canonical stylesheet lives in src/publish/assets/styles.css.
+public/
+
+# OS / editor cruft
+.DS_Store
+*.log

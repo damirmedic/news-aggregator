@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Sample Portal — Vijesti</title>
+    <link>https://example-portal.hr/</link>
+    <description>Bundled fixture feed for offline ingest runs.</description>
+    <item>
+      <title>Vlada donijela odluku o proračunu za 2027. godinu</title>
+      <link>https://example-portal.hr/vijesti/proracun-2027-odluka</link>
+      <pubDate>Sat, 11 Jul 2026 08:05:00 +0200</pubDate>
+      <guid>https://example-portal.hr/vijesti/proracun-2027-odluka</guid>
+    </item>
+    <item>
+      <title>Potres magnitude 4.2 po Richteru pogodio Jadran kod Splita</title>
+      <link>https://example-portal.hr/vijesti/potres-jadran-split</link>
+      <pubDate>Sat, 11 Jul 2026 07:40:00 +0200</pubDate>
+      <guid>https://example-portal.hr/vijesti/potres-jadran-split</guid>
+    </item>
+    <item>
+      <title>Dnevni horoskop za petak: što vam zvijezde poručuju</title>
+      <link>https://example-portal.hr/horoskop/dnevni-petak</link>
+      <pubDate>Sat, 11 Jul 2026 07:00:00 +0200</pubDate>
+      <guid>https://example-portal.hr/horoskop/dnevni-petak</guid>
+    </item>
+    <item>
+      <title>FOTO Pogledajte galeriju s otvorenja nove sezone</title>
+      <link>https://example-portal.hr/galerija/otvorenje-sezone</link>
+      <pubDate>Sat, 11 Jul 2026 06:30:00 +0200</pubDate>
+      <guid>https://example-portal.hr/galerija/otvorenje-sezone</guid>
+    </item>
+    <item>
+      <title>Grad Zagreb objavio raspored radova na tramvajskoj infrastrukturi</title>
+      <link>https://example-portal.hr/vijesti/zagreb-tramvaj-radovi</link>
+      <pubDate>Sat, 11 Jul 2026 06:10:00 +0200</pubDate>
+      <guid>https://example-portal.hr/vijesti/zagreb-tramvaj-radovi</guid>
+    </item>
+  </channel>
+</rss>
