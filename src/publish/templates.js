@@ -1,5 +1,7 @@
-// HTML templates for the static site. Plain string templates, no framework —
-// deliberately boring per CLAUDE.md. Mobile-first, minimal, fast-loading.
+// HTML templates for the static site — a plain, newspaper-style news portal.
+// String templates only, no framework (deliberately boring per CLAUDE.md).
+// Mobile-first, fast-loading, restrained typography. The front page shows a
+// lead story + a grid of teasers; each headline links to a full detail page.
 
 /** Escape text for safe insertion into HTML. */
 export function esc(str) {
@@ -13,83 +15,145 @@ export function esc(str) {
 
 const CATEGORY_LABEL = { hr: 'Hrvatska', world: 'Svijet' };
 
-function formatDate(iso) {
+const HR_MONTHS = [
+  'siječnja', 'veljače', 'ožujka', 'travnja', 'svibnja', 'lipnja',
+  'srpnja', 'kolovoza', 'rujna', 'listopada', 'studenoga', 'prosinca',
+];
+const HR_WEEKDAYS = [
+  'nedjelja', 'ponedjeljak', 'utorak', 'srijeda', 'četvrtak', 'petak', 'subota',
+];
+
+/** Long Croatian dateline, e.g. "subota, 11. srpnja 2026." (UTC-based). */
+function croatianDateLong(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  // Stable, locale-independent output so regenerations diff cleanly.
-  return d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+  return `${HR_WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()}. ${HR_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}.`;
 }
 
-/** Render body text (plain text with blank-line paragraphs) into <p> blocks. */
-function renderBody(body) {
+/** Short timestamp for cards/detail, e.g. "11.07.2026. 08:05". */
+function formatDateTime(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getUTCDate())}.${p(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}. ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+
+/** Split plain body text (blank-line paragraphs) into an array of paragraphs. */
+function paragraphs(body) {
   return String(body)
     .split(/\n{2,}/)
     .map((p) => p.trim())
-    .filter(Boolean)
+    .filter(Boolean);
+}
+
+/** Render body paragraphs to <p> blocks. */
+function renderBody(body) {
+  return paragraphs(body)
     .map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`)
     .join('\n');
 }
 
-/** One article card. `data-category` drives the client-side HR/World filter. */
-export function articleCard(a) {
-  const label = CATEGORY_LABEL[a.category] || a.category;
-  const sub = a.subheadline ? `<p class="sub">${esc(a.subheadline)}</p>` : '';
+/** Shared <head>. depth=0 for the front page, 1 for pages under /article/. */
+function head({ title, depth = 0 }) {
+  const css = `${'../'.repeat(depth)}assets/styles.css`;
+  return `<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Sažeci vijesti bez clickbaita — činjenično, kratko, s izvorom.">
+  <title>${esc(title)}</title>
+  <link rel="stylesheet" href="${esc(css)}">
+</head>`;
+}
+
+/** The masthead. On the front page it carries the dateline + category filter. */
+function masthead({ generatedAt, withFilter = false, homeHref = '#' }) {
+  const home = withFilter
+    ? '<h1>Vijesti — bez clickbaita</h1>'
+    : `<h1><a href="${esc(homeHref)}">Vijesti — bez clickbaita</a></h1>`;
+  const dateline = generatedAt
+    ? `<p class="dateline">${esc(croatianDateLong(generatedAt))}</p>`
+    : '';
+  const nav = withFilter
+    ? `<nav class="filters" aria-label="Filter po kategoriji">
+      <button type="button" class="active" data-filter="all">Sve</button>
+      <button type="button" data-filter="hr">Hrvatska</button>
+      <button type="button" data-filter="world">Svijet</button>
+    </nav>`
+    : `<p class="back"><a href="${esc(homeHref)}">← Sve vijesti</a></p>`;
+
+  return `<header class="site-header">
+    <div class="masthead">
+      ${home}
+      ${dateline}
+    </div>
+    <p class="tagline">Kratki, činjenični sažeci. Uvijek s poveznicom na izvor.</p>
+    ${nav}
+  </header>`;
+}
+
+function categoryChip(category) {
+  const label = CATEGORY_LABEL[category] || category;
+  return `<span class="cat cat-${esc(category)}">${esc(label)}</span>`;
+}
+
+/** The lead (hero) story on the front page. */
+function leadStory(a) {
+  const href = `article/${a.id}.html`;
+  const sub = a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : '';
+  const teaser = paragraphs(a.body).find((p) => !p.startsWith('[')) || '';
+  const teaserHtml = teaser ? `<p class="teaser">${esc(teaser)}</p>` : '';
   return `
-<article class="item" data-category="${esc(a.category)}">
-  <div class="meta">
-    <span class="cat cat-${esc(a.category)}">${esc(label)}</span>
-    <time datetime="${esc(a.publishedAt)}">${esc(formatDate(a.publishedAt))}</time>
-  </div>
-  <h2>${esc(a.headline)}</h2>
+<article class="story lead" data-category="${esc(a.category)}">
+  <div class="meta">${categoryChip(a.category)}<time datetime="${esc(a.publishedAt)}">${esc(formatDateTime(a.publishedAt))}</time></div>
+  <h2><a href="${esc(href)}">${esc(a.headline)}</a></h2>
   ${sub}
-  <div class="body">
-${renderBody(a.body)}
-  </div>
+  ${teaserHtml}
+  <p class="source">Izvor: <a href="${esc(a.sourceUrl)}" rel="noopener noreferrer nofollow" target="_blank">${esc(a.sourceName)}</a> · <a class="more" href="${esc(href)}">cijeli sažetak →</a></p>
+</article>`;
+}
+
+/** A teaser card in the grid. */
+function storyCard(a) {
+  const href = `article/${a.id}.html`;
+  const sub = a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : '';
+  return `
+<article class="story card" data-category="${esc(a.category)}">
+  <div class="meta">${categoryChip(a.category)}<time datetime="${esc(a.publishedAt)}">${esc(formatDateTime(a.publishedAt))}</time></div>
+  <h3><a href="${esc(href)}">${esc(a.headline)}</a></h3>
+  ${sub}
   <p class="source">Izvor: <a href="${esc(a.sourceUrl)}" rel="noopener noreferrer nofollow" target="_blank">${esc(a.sourceName)}</a></p>
 </article>`;
 }
 
-/** Full page. `articles` already rendered to HTML string. */
-export function pageShell({ itemsHtml, count, generatedAt }) {
+/** Full front page. `articles` newest-first. */
+export function frontPage({ articles, generatedAt }) {
+  const [lead, ...rest] = articles;
+  const body = articles.length
+    ? `${lead ? leadStory(lead) : ''}
+    <section class="grid" aria-label="Najnovije vijesti">
+${rest.map(storyCard).join('\n')}
+    </section>`
+    : '<p class="empty">Još nema objavljenih sažetaka. Pokrenite <code>npm run ingest</code>.</p>';
+
   return `<!doctype html>
 <html lang="hr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Sažeci vijesti bez clickbaita — činjenično, kratko, s izvorom.">
-  <title>Vijesti — bez clickbaita</title>
-  <link rel="stylesheet" href="./assets/styles.css">
-</head>
+${head({ title: 'Vijesti — bez clickbaita' })}
 <body>
-  <header class="site-header">
-    <h1>Vijesti — bez clickbaita</h1>
-    <p class="tagline">Kratki, činjenični sažeci. Uvijek s poveznicom na izvor.</p>
-    <nav class="filters" aria-label="Filter po kategoriji">
-      <button type="button" class="active" data-filter="all">Sve</button>
-      <button type="button" data-filter="hr">Hrvatska</button>
-      <button type="button" data-filter="world">Svijet</button>
-    </nav>
-  </header>
-
+  ${masthead({ generatedAt, withFilter: true })}
   <main id="feed">
-${itemsHtml || '<p class="empty">Još nema objavljenih sažetaka. Pokrenite <code>npm run ingest</code>.</p>'}
+    ${body}
   </main>
-
-  <footer class="site-footer">
-    <p>${count} ${count === 1 ? 'objava' : 'objava'} · generirano ${esc(formatDate(generatedAt))}</p>
-    <p>Sažeci su izvedeni iz činjenica; puni tekst i zasluge pripadaju izvoru.</p>
-  </footer>
-
+  ${siteFooter({ count: articles.length, generatedAt })}
   <script>
     // Minimal client-side category filter — no dependencies.
     (function () {
       var buttons = document.querySelectorAll('.filters button');
-      var items = document.querySelectorAll('#feed .item');
+      var stories = document.querySelectorAll('#feed .story');
       buttons.forEach(function (btn) {
         btn.addEventListener('click', function () {
           var f = btn.getAttribute('data-filter');
           buttons.forEach(function (b) { b.classList.toggle('active', b === btn); });
-          items.forEach(function (el) {
+          stories.forEach(function (el) {
             el.style.display = (f === 'all' || el.getAttribute('data-category') === f) ? '' : 'none';
           });
         });
@@ -99,4 +163,37 @@ ${itemsHtml || '<p class="empty">Još nema objavljenih sažetaka. Pokrenite <cod
 </body>
 </html>
 `;
+}
+
+/** Full article detail page. */
+export function articlePage({ article: a, generatedAt }) {
+  return `<!doctype html>
+<html lang="hr">
+${head({ title: `${a.headline} — Vijesti`, depth: 1 })}
+<body>
+  ${masthead({ generatedAt, withFilter: false, homeHref: '../index.html' })}
+  <main class="article-page">
+    <article class="story full" data-category="${esc(a.category)}">
+      <div class="meta">${categoryChip(a.category)}<time datetime="${esc(a.publishedAt)}">${esc(formatDateTime(a.publishedAt))}</time></div>
+      <h2>${esc(a.headline)}</h2>
+      ${a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : ''}
+      <div class="body">
+${renderBody(a.body)}
+      </div>
+      <p class="source">Izvor: <a href="${esc(a.sourceUrl)}" rel="noopener noreferrer nofollow" target="_blank">${esc(a.sourceName)}</a></p>
+      <p class="disclaimer">Ovo je činjenični sažetak izveden iz izvornog članka. Puni tekst i zasluge pripadaju izvoru; kliknite poveznicu iznad.</p>
+    </article>
+  </main>
+  ${siteFooter({ generatedAt })}
+</body>
+</html>
+`;
+}
+
+function siteFooter({ count, generatedAt }) {
+  const countLine = typeof count === 'number' ? `<p>${count} objava · generirano ${esc(formatDateTime(generatedAt))}</p>` : '';
+  return `<footer class="site-footer">
+    ${countLine}
+    <p>Sažeci su izvedeni iz činjenica; puni tekst i zasluge pripadaju izvoru.</p>
+  </footer>`;
 }

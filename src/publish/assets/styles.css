@@ -1,6 +1,7 @@
 /* No-Clickbait News Aggregator — canonical stylesheet.
-   Copied into public/assets/ on each site generation. Mobile-first, minimal,
-   fast-loading, quiet. No web fonts, no frameworks. */
+   Copied into public/assets/ on each site generation. A plain, newspaper-style
+   portal: restrained serif typography, thin rules, muted newsprint palette.
+   Mobile-first, fast-loading, no web fonts, no frameworks. Light + dark. */
 
 :root {
   --bg: #fbfbf9;
@@ -8,10 +9,12 @@
   --text: #1a1a1a;
   --muted: #5c5c5c;
   --line: #e4e2dc;
-  --accent: #7a2d1e; /* muted brick — old-newsprint, not alarming */
+  --rule: #1a1a1a;
+  --accent: #7a2d1e; /* muted brick — old newsprint, not alarming */
   --hr: #2f5d50;
   --world: #3a4a7a;
-  --maxw: 46rem;
+  --shell: 68rem;
+  --read: 44rem;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -21,6 +24,7 @@
     --text: #ececec;
     --muted: #a3a3a3;
     --line: #33333c;
+    --rule: #c9c9c9;
     --accent: #d98b78;
     --hr: #7fbfa8;
     --world: #9aa9e0;
@@ -37,64 +41,76 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+a { color: var(--accent); }
+a:hover { text-decoration: underline; }
+
 .site-header,
 main,
 .site-footer {
-  max-width: var(--maxw);
+  max-width: var(--shell);
   margin: 0 auto;
   padding: 0 1.1rem;
 }
 
+/* ---------- Masthead ---------- */
 .site-header {
-  padding-top: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid var(--text);
+  padding-top: 1.6rem;
+  border-bottom: 3px double var(--rule);
+  margin-bottom: 1.6rem;
 }
 
-.site-header h1 {
-  font-size: 1.9rem;
-  margin: 0 0 0.25rem;
+.masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.5rem;
+}
+
+.masthead h1 {
+  font-size: clamp(1.7rem, 4.5vw, 2.6rem);
+  line-height: 1.05;
+  margin: 0;
   letter-spacing: -0.01em;
+}
+.masthead h1 a { color: inherit; text-decoration: none; }
+
+.dateline {
+  margin: 0;
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .tagline {
-  margin: 0 0 1rem;
+  margin: 0.5rem 0 0.9rem;
   color: var(--muted);
   font-style: italic;
   font-size: 0.95rem;
 }
 
-.filters {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
-
+.filters { display: flex; gap: 0.4rem; flex-wrap: wrap; padding-bottom: 0.9rem; }
 .filters button {
   font: inherit;
   font-size: 0.85rem;
-  padding: 0.3rem 0.8rem;
+  padding: 0.3rem 0.85rem;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--text);
   border-radius: 999px;
   cursor: pointer;
 }
+.filters button.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 
-.filters button.active {
-  background: var(--text);
-  color: var(--bg);
-  border-color: var(--text);
-}
+.back { margin: 0 0 0.9rem; font-family: -apple-system, system-ui, sans-serif; font-size: 0.85rem; }
+.back a { color: var(--muted); text-decoration: none; }
+.back a:hover { color: var(--accent); }
 
-main { padding-top: 1.5rem; padding-bottom: 2rem; }
-
-.item {
-  padding: 1.4rem 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.item .meta {
+/* ---------- Shared story bits ---------- */
+.meta {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -105,47 +121,87 @@ main { padding-top: 1.5rem; padding-bottom: 2rem; }
   color: var(--muted);
   margin-bottom: 0.4rem;
 }
-
-.cat {
-  font-weight: 700;
-}
+.cat { font-weight: 700; }
 .cat-hr { color: var(--hr); }
 .cat-world { color: var(--world); }
 
-.item h2 {
-  font-size: 1.35rem;
-  line-height: 1.25;
-  margin: 0 0 0.35rem;
-}
+.deck { color: var(--muted); margin: 0 0 0.6rem; }
 
-.item .sub {
-  margin: 0 0 0.6rem;
-  color: var(--muted);
-  font-size: 1.02rem;
-}
+.story h2 a,
+.story h3 a { color: inherit; text-decoration: none; }
+.story h2 a:hover,
+.story h3 a:hover { color: var(--accent); text-decoration: none; }
 
-.item .body p {
-  margin: 0 0 0.7rem;
-}
-
-.item .source {
-  margin: 0.6rem 0 0;
+.source {
+  margin: 0.5rem 0 0;
   font-family: -apple-system, system-ui, sans-serif;
   font-size: 0.8rem;
   color: var(--muted);
 }
+.source .more { color: var(--accent); }
 
-a { color: var(--accent); }
+/* ---------- Lead story ---------- */
+.lead {
+  padding-bottom: 1.6rem;
+  margin-bottom: 1.6rem;
+  border-bottom: 2px solid var(--rule);
+}
+.lead h2 {
+  font-size: clamp(1.6rem, 4.2vw, 2.2rem);
+  line-height: 1.15;
+  margin: 0 0 0.5rem;
+}
+.lead .deck { font-size: 1.1rem; }
+.lead .teaser { margin: 0 0 0.6rem; }
 
-.empty {
+/* ---------- Grid of teasers ---------- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1.4rem 1.6rem;
+}
+.card {
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.card h3 {
+  font-size: 1.2rem;
+  line-height: 1.25;
+  margin: 0 0 0.35rem;
+}
+.card .deck { font-size: 0.95rem; }
+
+/* ---------- Article detail page ---------- */
+.article-page { max-width: var(--read); }
+.story.full h2 {
+  font-size: clamp(1.7rem, 4.5vw, 2.3rem);
+  line-height: 1.15;
+  margin: 0 0 0.5rem;
+}
+.story.full .deck { font-size: 1.1rem; margin-bottom: 1rem; }
+.story.full .body { font-size: 1.06rem; }
+.story.full .body p { margin: 0 0 0.9rem; }
+.story.full .source {
+  margin-top: 1.2rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+.disclaimer {
+  margin: 0.8rem 0 0;
   color: var(--muted);
+  font-size: 0.82rem;
   font-style: italic;
 }
 
+.empty { color: var(--muted); font-style: italic; }
+
+/* ---------- Footer ---------- */
 .site-footer {
+  margin-top: 2rem;
   padding-top: 1.2rem;
   padding-bottom: 2.5rem;
-  border-top: 1px solid var(--line);
+  border-top: 3px double var(--rule);
   color: var(--muted);
   font-family: -apple-system, system-ui, sans-serif;
   font-size: 0.8rem;
