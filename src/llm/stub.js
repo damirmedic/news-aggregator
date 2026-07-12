@@ -26,10 +26,10 @@ function firstSentence(text, fallback) {
 }
 
 /** Stand-in for LLM call 1: derive a minimal fact-list from title/body. */
-export function extractFactsStub({ title, bodyText, category }) {
+export function extractFactsStub({ title, bodyText, track }) {
   // Deterministic 5-9 range so some world items pass and some don't at the
   // default threshold of 7 — exercises the 90/10 gate in stub runs.
-  const worldImportance = category === 'world' ? 5 + (hash(title) % 5) : null;
+  const worldImportance = track === 'world' ? 5 + (hash(title) % 5) : null;
   return {
     who: [],
     what: title.trim(),
@@ -39,6 +39,8 @@ export function extractFactsStub({ title, bodyText, category }) {
     numbers: [],
     quotes: [],
     world_importance: worldImportance,
+    is_current_news: true,
+    category: track === 'world' ? 'svijet' : 'hrvatska',
     _stub_excerpt: firstSentence(bodyText, title.trim()),
   };
 }

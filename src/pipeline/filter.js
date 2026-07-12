@@ -19,6 +19,16 @@ const URL_PATTERNS = [
   /\/live(\/|$|-)/,
   /\/nagradna-igra/,
   /\/oglas/,
+  // Magazine/lifestyle/entertainment sections — out of scope per CLAUDE.md's
+  // "no clickbait, plain wire-service reporting" scope; these are the
+  // category slugs Croatian portals commonly use for that content.
+  /\/zabava/, // entertainment / celebrity gossip
+  /\/showbiz/,
+  /\/magazin/,
+  /\/lifestyle/,
+  /\/moda/, // fashion
+  /\/ljepota/, // beauty
+  /\/recepti/, // recipes
 ];
 
 // Patterns tested against the lowercased, diacritic-stripped title.

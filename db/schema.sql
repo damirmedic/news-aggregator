@@ -9,11 +9,13 @@ PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
 -- News sources (RSS feeds). Seeded from src/sources.js.
+-- `track` is the selection track (Croatian portal vs international wire) —
+-- not the article's display category; see articles.category below.
 CREATE TABLE IF NOT EXISTS sources (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   name       TEXT    NOT NULL,
   rss_url    TEXT    NOT NULL UNIQUE,
-  category   TEXT    NOT NULL CHECK (category IN ('hr', 'world')),
+  track      TEXT    NOT NULL CHECK (track IN ('hr', 'world')),
   active     INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1))
 );
 
@@ -40,6 +42,10 @@ CREATE INDEX IF NOT EXISTS idx_raw_items_status    ON raw_items(status);
 CREATE INDEX IF NOT EXISTS idx_raw_items_source    ON raw_items(source_id);
 
 -- Published summaries. One row per successfully summarized raw_item.
+-- `category` is the article's own display category, classified from its
+-- actual content by the LLM during fact extraction — independent of which
+-- source/track it came from (a Croatian portal can publish a 'svijet' or
+-- 'sport' story; a world-wire item is still gated by world_score first).
 CREATE TABLE IF NOT EXISTS articles (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   raw_item_id  INTEGER NOT NULL UNIQUE REFERENCES raw_items(id) ON DELETE CASCADE,
@@ -48,9 +54,10 @@ CREATE TABLE IF NOT EXISTS articles (
   body         TEXT    NOT NULL,
   source_name  TEXT    NOT NULL,
   source_url   TEXT    NOT NULL,
-  category     TEXT    NOT NULL CHECK (category IN ('hr', 'world')),
-  world_score  INTEGER,                               -- 0-10 for world items, NULL for hr
-  published_at TEXT    NOT NULL                       -- ISO-8601
+  category     TEXT    NOT NULL CHECK (category IN ('hrvatska', 'zagreb', 'svijet', 'sport')),
+  world_score  INTEGER,                               -- 0-10 for world-track items, NULL for hr-track
+  published_at TEXT    NOT NULL,                      -- ISO-8601, from the source (see run.js)
+  image_url    TEXT                                   -- hotlinked source featured image; see CLAUDE.md caveat
 );
 
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);

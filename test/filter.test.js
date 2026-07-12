@@ -56,3 +56,20 @@ test('drops items with a malformed URL', () => {
   assert.equal(r.drop, true);
   assert.equal(r.reason, 'invalid-url');
 });
+
+test('drops magazine/lifestyle sections by URL path', () => {
+  const paths = [
+    '/zabava/pjevacica-objavila-fotografije',
+    '/showbiz/glumac-i-glumica',
+    '/magazin/najbolji-trikovi',
+    '/lifestyle/kako-do-savrsenog-doma',
+    '/moda/trendovi-sezone',
+    '/ljepota/njega-koze',
+    '/recepti/najbolja-torta',
+  ];
+  for (const path of paths) {
+    const r = shouldDrop({ title: 'Naslov', link: `https://example-portal.hr${path}` });
+    assert.equal(r.drop, true, `expected ${path} to be dropped`);
+    assert.equal(r.reason, 'excluded-url-pattern');
+  }
+});

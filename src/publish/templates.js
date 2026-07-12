@@ -13,7 +13,7 @@ export function esc(str) {
     .replace(/'/g, '&#39;');
 }
 
-const CATEGORY_LABEL = { hr: 'Hrvatska', world: 'Svijet' };
+const CATEGORY_LABEL = { hrvatska: 'Hrvatska', zagreb: 'Zagreb', svijet: 'Svijet', sport: 'Sport' };
 
 const HR_MONTHS = [
   'siječnja', 'veljače', 'ožujka', 'travnja', 'svibnja', 'lipnja',
@@ -76,8 +76,10 @@ function masthead({ generatedAt, withFilter = false, homeHref = '#' }) {
   const nav = withFilter
     ? `<nav class="filters" aria-label="Filter po kategoriji">
       <button type="button" class="active" data-filter="all">Sve</button>
-      <button type="button" data-filter="hr">Hrvatska</button>
-      <button type="button" data-filter="world">Svijet</button>
+      <button type="button" data-filter="hrvatska">Hrvatska</button>
+      <button type="button" data-filter="zagreb">Zagreb</button>
+      <button type="button" data-filter="svijet">Svijet</button>
+      <button type="button" data-filter="sport">Sport</button>
     </nav>`
     : `<p class="back"><a href="${esc(homeHref)}">← Sve vijesti</a></p>`;
 
@@ -96,28 +98,40 @@ function categoryChip(category) {
   return `<span class="cat cat-${esc(category)}">${esc(label)}</span>`;
 }
 
-/** The lead (hero) story on the front page. */
+/**
+ * Hotlinked featured image with a visible source credit — never downloaded
+ * or rehosted, always attributed. See the CLAUDE.md caveat this deliberately
+ * carves out from the "headline + quote only" principle.
+ */
+function storyImage(a, { eager = false } = {}) {
+  if (!a.imageUrl) return '';
+  return `<figure class="story-image">
+    <img src="${esc(a.imageUrl)}" alt="${esc(a.headline)}" loading="${eager ? 'eager' : 'lazy'}" referrerpolicy="no-referrer" onerror="this.closest('figure').remove()">
+    <figcaption>Foto: ${esc(a.sourceName)}</figcaption>
+  </figure>`;
+}
+
+/** The lead (hero) story on the front page — headline + short summary only. */
 function leadStory(a) {
   const href = `article/${a.id}.html`;
   const sub = a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : '';
-  const teaser = paragraphs(a.body).find((p) => !p.startsWith('[')) || '';
-  const teaserHtml = teaser ? `<p class="teaser">${esc(teaser)}</p>` : '';
   return `
 <article class="story lead" data-category="${esc(a.category)}">
+  ${storyImage(a, { eager: true })}
   <div class="meta">${categoryChip(a.category)}<time datetime="${esc(a.publishedAt)}">${esc(formatDateTime(a.publishedAt))}</time></div>
   <h2><a href="${esc(href)}">${esc(a.headline)}</a></h2>
   ${sub}
-  ${teaserHtml}
   <p class="source">Izvor: <a href="${esc(a.sourceUrl)}" rel="noopener noreferrer nofollow" target="_blank">${esc(a.sourceName)}</a> · <a class="more" href="${esc(href)}">cijeli sažetak →</a></p>
 </article>`;
 }
 
-/** A teaser card in the grid. */
-function storyCard(a) {
+/** A teaser card. `size` is 'featured' (the 2-up row) or 'grid' (3-up rows). */
+function storyCard(a, { size = 'grid' } = {}) {
   const href = `article/${a.id}.html`;
   const sub = a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : '';
   return `
-<article class="story card" data-category="${esc(a.category)}">
+<article class="story card card-${size}" data-category="${esc(a.category)}">
+  ${storyImage(a, { eager: size === 'featured' })}
   <div class="meta">${categoryChip(a.category)}<time datetime="${esc(a.publishedAt)}">${esc(formatDateTime(a.publishedAt))}</time></div>
   <h3><a href="${esc(href)}">${esc(a.headline)}</a></h3>
   ${sub}
@@ -125,14 +139,28 @@ function storyCard(a) {
 </article>`;
 }
 
-/** Full front page. `articles` newest-first. */
+/**
+ * Full front page. `articles` newest-first: 1 hero lead, then a 2-up
+ * featured row, then the rest in a 3-up grid (desktop; fewer columns on
+ * smaller screens — see .row-2 / .grid-3 in styles.css).
+ */
 export function frontPage({ articles, generatedAt }) {
   const [lead, ...rest] = articles;
+  const row2 = rest.slice(0, 2);
+  const gridRest = rest.slice(2);
+
+  const sections = [
+    lead ? leadStory(lead) : '',
+    row2.length
+      ? `<section class="row-2" aria-label="Istaknute vijesti">\n${row2.map((a) => storyCard(a, { size: 'featured' })).join('\n')}\n</section>`
+      : '',
+    gridRest.length
+      ? `<section class="grid-3" aria-label="Najnovije vijesti">\n${gridRest.map((a) => storyCard(a, { size: 'grid' })).join('\n')}\n</section>`
+      : '',
+  ].filter(Boolean);
+
   const body = articles.length
-    ? `${lead ? leadStory(lead) : ''}
-    <section class="grid" aria-label="Najnovije vijesti">
-${rest.map(storyCard).join('\n')}
-    </section>`
+    ? sections.join('\n')
     : '<p class="empty">Još nema objavljenih sažetaka. Pokrenite <code>npm run ingest</code>.</p>';
 
   return `<!doctype html>
@@ -174,6 +202,7 @@ ${head({ title: `${a.headline} — Vijesti`, depth: 1 })}
   ${masthead({ generatedAt, withFilter: false, homeHref: '../index.html' })}
   <main class="article-page">
     <article class="story full" data-category="${esc(a.category)}">
+      ${storyImage(a, { eager: true })}
       <div class="meta">${categoryChip(a.category)}<time datetime="${esc(a.publishedAt)}">${esc(formatDateTime(a.publishedAt))}</time></div>
       <h2>${esc(a.headline)}</h2>
       ${a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : ''}

@@ -42,17 +42,37 @@ async function completeJsonAnthropic({ system, user, maxTokens }) {
   return parseJsonObject(text);
 }
 
-/** Call Gemini with a system+user prompt, requesting JSON output directly. */
+const RATE_LIMIT_RETRIES = 3;
+const RATE_LIMIT_BASE_DELAY_MS = 3000;
+
+const isRateLimitError = (err) =>
+  err?.status === 429 || err?.code === 429 || /\b429\b/.test(String(err?.message ?? err));
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Call Gemini with a system+user prompt, requesting JSON output directly.
+ * The free tier's per-minute request cap is easy to hit with many active
+ * sources firing sequential calls, so 429s get a few exponential-backoff
+ * retries before giving up — everything else fails immediately.
+ */
 async function completeJsonGemini({ system, user }) {
-  const res = await getGemini().models.generateContent({
-    model: config.llm.geminiModel,
-    contents: user,
-    config: {
-      systemInstruction: system,
-      responseMimeType: 'application/json',
-    },
-  });
-  return parseJsonObject(res.text);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await getGemini().models.generateContent({
+        model: config.llm.geminiModel,
+        contents: user,
+        config: {
+          systemInstruction: system,
+          responseMimeType: 'application/json',
+        },
+      });
+      return parseJsonObject(res.text);
+    } catch (err) {
+      if (!isRateLimitError(err) || attempt >= RATE_LIMIT_RETRIES) throw err;
+      await sleep(RATE_LIMIT_BASE_DELAY_MS * 2 ** attempt);
+    }
+  }
 }
 
 function parseJsonObject(text) {
@@ -70,10 +90,10 @@ async function completeJson({ system, user }) {
   return completeJsonAnthropic({ system, user, maxTokens: 1500 });
 }
 
-/** LLM call 1 — extract structured facts (+ world importance) from body. */
-export async function extractFacts({ title, bodyText, category }) {
-  if (!isLive()) return extractFactsStub({ title, bodyText, category });
-  const { system, user } = factExtractionPrompt({ title, bodyText, category });
+/** LLM call 1 — extract structured facts (+ world importance, category) from body. */
+export async function extractFacts({ title, bodyText, track }) {
+  if (!isLive()) return extractFactsStub({ title, bodyText, track });
+  const { system, user } = factExtractionPrompt({ title, bodyText, track });
   return completeJson({ system, user });
 }
 

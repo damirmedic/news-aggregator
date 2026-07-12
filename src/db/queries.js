@@ -4,7 +4,7 @@ import { getDb } from './index.js';
 
 export function getActiveSources() {
   return getDb()
-    .prepare('SELECT id, name, rss_url AS rssUrl, category FROM sources WHERE active = 1')
+    .prepare('SELECT id, name, rss_url AS rssUrl, track FROM sources WHERE active = 1')
     .all();
 }
 
@@ -26,7 +26,8 @@ export function insertRawItem({ sourceId, title, link, pubDate, fetchedAt }) {
 export function getNewItemsForSource(sourceId, limit) {
   return getDb()
     .prepare(
-      `SELECT id, source_id AS sourceId, title, link, pub_date AS pubDate
+      `SELECT id, source_id AS sourceId, title, link, pub_date AS pubDate,
+              fetched_at AS fetchedAt
        FROM raw_items
        WHERE source_id = ? AND status = 'new'
        ORDER BY COALESCE(pub_date, fetched_at) DESC
@@ -58,9 +59,9 @@ export function insertArticle(article) {
       .prepare(
         `INSERT INTO articles
            (raw_item_id, headline, subheadline, body, source_name, source_url,
-            category, world_score, published_at)
+            category, world_score, published_at, image_url)
          VALUES (@rawItemId, @headline, @subheadline, @body, @sourceName, @sourceUrl,
-            @category, @worldScore, @publishedAt)`
+            @category, @worldScore, @publishedAt, @imageUrl)`
       )
       .run(a);
     db.prepare(`UPDATE raw_items SET status = 'published' WHERE id = ?`).run(a.rawItemId);
@@ -75,7 +76,7 @@ export function getPublishedArticles({ limit = 200 } = {}) {
     .prepare(
       `SELECT id, headline, subheadline, body, source_name AS sourceName,
               source_url AS sourceUrl, category, world_score AS worldScore,
-              published_at AS publishedAt
+              published_at AS publishedAt, image_url AS imageUrl
        FROM articles
        ORDER BY published_at DESC
        LIMIT ?`

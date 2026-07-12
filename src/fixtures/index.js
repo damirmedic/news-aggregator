@@ -12,9 +12,9 @@ const HR_FEED = read('sample-feed.xml');
 const WORLD_FEED = read('sample-feed-world.xml');
 const ARTICLE_HTML = read('sample-article.html');
 
-/** Offline replacement for the RSS fetch: returns feed XML by source category. */
-export function offlineFeedFetch(category) {
-  return async () => (category === 'world' ? WORLD_FEED : HR_FEED);
+/** Offline replacement for the RSS fetch: returns feed XML by source track. */
+export function offlineFeedFetch(track) {
+  return async () => (track === 'world' ? WORLD_FEED : HR_FEED);
 }
 
 /** Offline replacement for the article-HTML fetch: one generic body for all. */

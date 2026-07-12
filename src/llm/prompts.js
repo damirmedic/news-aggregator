@@ -5,8 +5,13 @@
 // original prose), which is what keeps the summary from mirroring the source.
 // See "Content pipeline" and "Editorial style guide" in CLAUDE.md.
 
-/** Build the fact-extraction prompt (LLM call 1). */
-export function factExtractionPrompt({ title, bodyText, category }) {
+/**
+ * Build the fact-extraction prompt (LLM call 1).
+ * @param track 'hr' (Croatian portal) | 'world' (international wire) — the
+ *   source's selection track, not the article's own display category (which
+ *   this same call also classifies into "category" below).
+ */
+export function factExtractionPrompt({ title, bodyText, track }) {
   const system = [
     'You are a fact extractor for a news wire. You read one article and output',
     'a structured JSON list of the verifiable facts it contains. You never copy',
@@ -17,11 +22,11 @@ export function factExtractionPrompt({ title, bodyText, category }) {
   ].join(' ');
 
   const worldScoring =
-    category === 'world'
+    track === 'world'
       ? 'Also include "world_importance" (integer 0-10): how genuinely important ' +
         'this story is to a Croatian reader (major EU policy, war/conflict, global ' +
         'economy, natural disasters score high; routine wire coverage scores low).'
-      : 'This is a domestic Croatian story; set "world_importance" to null.';
+      : 'This came from a domestic Croatian portal; set "world_importance" to null.';
 
   const user = [
     `SOURCE TITLE: ${title}`,
@@ -38,16 +43,43 @@ export function factExtractionPrompt({ title, bodyText, category }) {
     '  "why": string|null,     // cause / significance, if stated',
     '  "numbers": [string],    // key figures (amounts, counts, dates)',
     '  "quotes": [ { "text": string, "speaker": string } ], // <=15 words each, verbatim, attributable',
-    '  "world_importance": number|null',
+    '  "world_importance": number|null,',
+    '  "is_current_news": boolean,',
+    '  "category": "hrvatska" | "zagreb" | "svijet" | "sport"',
     '}',
     worldScoring,
+    'Set "is_current_news" to false for content that is not a report of a',
+    'specific current event — historical retrospectives ("on this day",',
+    'decades-old trivia narrated for its own sake, even about a once-newsworthy',
+    'event), celebrity gossip, lifestyle/recipe/travel pieces, quizzes, or',
+    'listicles. Set it to true for anything reporting something happening now,',
+    'including a present-day commemoration or anniversary EVENT that is itself',
+    'news (e.g. "today\'s memorial ceremony drew thousands") — the distinction',
+    'is whether the article is about a current happening, not whether it',
+    'mentions a past date.',
+    '',
+    'Classify "category" by the article\'s actual topic, regardless of which',
+    'portal or feed it came from:',
+    '  "sport"    — any sporting event, competition, athlete, or club, whether',
+    '               Croatian or international. Takes priority whenever the',
+    '               story is fundamentally about sport.',
+    '  "zagreb"   — primarily about the city of Zagreb itself (its city',
+    '               government, local events, local incidents) — not just',
+    '               something that happens to be located there.',
+    '  "svijet"   — international/world news not primarily about Croatia.',
+    '  "hrvatska" — everything else: domestic Croatian national news.',
     'Do not invent facts. Omit anything not supported by the body.',
   ].join('\n');
 
   return { system, user };
 }
 
-/** Build the summary-writing prompt (LLM call 2). Sees facts only. */
+/**
+ * Build the summary-writing prompt (LLM call 2). Sees facts only.
+ * @param category the article's own classified display category (from the
+ *   fact-extraction step), used only as light context here — not the
+ *   source's track.
+ */
 export function summaryPrompt({ facts, sourceName, category }) {
   const system = [
     'You are an old-school wire-service reporter writing for a Croatian news',

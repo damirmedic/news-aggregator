@@ -25,6 +25,14 @@ itself.
   Always link to and credit the original source. See "Content pipeline"
   below — the two-step extract-then-write process is the actual copyright
   safety mechanism, not just a nice-to-have.
+  **Known exception (added 2026-07-11):** article pages hotlink the source's
+  own featured image (via its `og:image` tag) with a visible "Foto: [Source]"
+  credit. The image is never downloaded or rehosted — only its source URL is
+  embedded — but displaying it is still "more than headline + quote," a real
+  deviation from the rule above. Accepted for now because the site is
+  personal-use only and not public. **Revisit before any public launch:**
+  either drop images, source them independently (self-generated/licensed),
+  or knowingly accept the legal exposure of hotlinking.
 - **90/10 split.** Croatian domestic news dominates the feed. World/EU news
   only surfaces if it clears a "genuinely important" bar (see Selection
   logic) — not routine wire coverage.

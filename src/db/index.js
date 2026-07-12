@@ -29,30 +29,41 @@ export function migrate() {
   const database = getDb();
   const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
   database.exec(schema);
+  // CREATE TABLE IF NOT EXISTS doesn't add columns to an already-existing
+  // table, so new nullable columns need an explicit additive migration.
+  ensureColumn(database, 'articles', 'image_url', 'TEXT');
   seedSources(database);
   return database;
 }
 
+/** Add `column` to `table` if it doesn't already exist. Additive only. */
+function ensureColumn(database, table, column, definition) {
+  const cols = database.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === column)) {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
 /**
- * Upsert sources by rss_url. Updates name/category/active to match the seed so
+ * Upsert sources by rss_url. Updates name/track/active to match the seed so
  * `src/sources.js` stays the single source of truth. Does not delete rows for
  * sources removed from the seed (keeps their raw_items intact).
  */
 function seedSources(database) {
   const upsert = database.prepare(`
-    INSERT INTO sources (name, rss_url, category, active)
-    VALUES (@name, @rss_url, @category, @active)
+    INSERT INTO sources (name, rss_url, track, active)
+    VALUES (@name, @rss_url, @track, @active)
     ON CONFLICT(rss_url) DO UPDATE SET
-      name     = excluded.name,
-      category = excluded.category,
-      active   = excluded.active
+      name   = excluded.name,
+      track  = excluded.track,
+      active = excluded.active
   `);
   const seedAll = database.transaction((rows) => {
     for (const s of rows) {
       upsert.run({
         name: s.name,
         rss_url: s.rssUrl,
-        category: s.category,
+        track: s.track,
         active: s.active ? 1 : 0,
       });
     }

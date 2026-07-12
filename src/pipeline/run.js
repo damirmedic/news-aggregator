@@ -33,12 +33,12 @@ export async function runIngestCycle({ offline = false, skipGenerate = false } =
   const sources = getActiveSources();
   log(`mode=${config.llm.mode} offline=${offline} active_sources=${sources.length}`);
 
-  const totals = { fetched: 0, filtered: 0, extractErrors: 0, belowThreshold: 0, published: 0 };
+  const totals = { fetched: 0, filtered: 0, extractErrors: 0, nonNews: 0, belowThreshold: 0, published: 0 };
 
   // --- Phase 1: fetch feeds ---
   for (const source of sources) {
     try {
-      const feedFetch = offline ? offlineFeedFetch(source.category) : undefined;
+      const feedFetch = offline ? offlineFeedFetch(source.track) : undefined;
       const { found, inserted } = await fetchSource(source, { fetchImpl: feedFetch });
       totals.fetched += inserted;
       log(`fetched ${source.name}: ${inserted} new / ${found} in feed`);
@@ -74,10 +74,10 @@ async function processItem(item, source, { offline, totals }) {
   }
 
   // Step 3: full-text extraction
-  let bodyText;
+  let bodyText, publishedTime, imageUrl;
   try {
     const htmlFetch = offline ? offlineHtmlFetch : undefined;
-    ({ text: bodyText } = await extractArticleText(item.link, { fetchImpl: htmlFetch }));
+    ({ text: bodyText, publishedTime, imageUrl } = await extractArticleText(item.link, { fetchImpl: htmlFetch }));
     markStatus(item.id, 'extracted');
   } catch (err) {
     markStatus(item.id, 'error', `extract: ${err.message}`);
@@ -85,13 +85,14 @@ async function processItem(item, source, { offline, totals }) {
     return;
   }
 
-  // Step 4: extract facts (+ world-importance gate)
-  let facts, worldScore, passesGate;
+  // Step 4: extract facts (+ is-current-news, world-importance, and
+  // article-category-classification gates)
+  let facts, worldScore, isCurrentNews, category, passesGate;
   try {
-    ({ facts, worldScore, passesGate } = await extractFactsForItem({
+    ({ facts, worldScore, isCurrentNews, category, passesGate } = await extractFactsForItem({
       title: item.title,
       bodyText,
-      category: source.category,
+      track: source.track,
     }));
   } catch (err) {
     markStatus(item.id, 'error', `facts: ${err.message}`);
@@ -100,14 +101,19 @@ async function processItem(item, source, { offline, totals }) {
   }
 
   if (!passesGate) {
-    markFiltered(item.id, `below-world-threshold (${worldScore})`);
-    totals.belowThreshold++;
+    if (!isCurrentNews) {
+      markFiltered(item.id, 'non-current-news-content');
+      totals.nonNews++;
+    } else {
+      markFiltered(item.id, `below-world-threshold (${worldScore})`);
+      totals.belowThreshold++;
+    }
     return;
   }
 
   // Step 5: write summary + publish
   try {
-    const summary = await writeSummaryForItem({ facts, sourceName: source.name, category: source.category });
+    const summary = await writeSummaryForItem({ facts, sourceName: source.name, category });
     insertArticle({
       rawItemId: item.id,
       headline: summary.headline,
@@ -115,13 +121,30 @@ async function processItem(item, source, { offline, totals }) {
       body: summary.body,
       sourceName: source.name,
       sourceUrl: item.link,
-      category: source.category,
+      category,
       worldScore,
-      publishedAt: new Date().toISOString(),
+      // RSS pubDate first: in practice it carries minute-level precision,
+      // while page <meta> published-time tags are often date-only (seen on
+      // Index.hr). Page metadata is still a useful fallback for feeds that
+      // omit pubDate; "now" is a last resort, not the real publish time.
+      publishedAt: resolvePublishedAt(item.pubDate, publishedTime, item.fetchedAt),
+      // Hotlinked from the source, never downloaded/stored — see the image
+      // credit rendered alongside it in publish/templates.js.
+      imageUrl,
     });
     totals.published++;
   } catch (err) {
     markStatus(item.id, 'error', `summary: ${err.message}`);
     totals.extractErrors++;
   }
+}
+
+/** First valid date among the given candidates, in caller-specified priority order. */
+function resolvePublishedAt(...candidates) {
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const t = new Date(candidate).getTime();
+    if (Number.isFinite(t)) return new Date(t).toISOString();
+  }
+  return new Date().toISOString();
 }

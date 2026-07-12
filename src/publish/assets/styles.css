@@ -12,7 +12,9 @@
   --rule: #1a1a1a;
   --accent: #7a2d1e; /* muted brick — old newsprint, not alarming */
   --hr: #2f5d50;
+  --zagreb: #8a6d1f;
   --world: #3a4a7a;
+  --sport: #a5540f;
   --shell: 68rem;
   --read: 44rem;
 }
@@ -27,7 +29,9 @@
     --rule: #c9c9c9;
     --accent: #d98b78;
     --hr: #7fbfa8;
+    --zagreb: #d4b45a;
     --world: #9aa9e0;
+    --sport: #e0a068;
   }
 }
 
@@ -122,10 +126,33 @@ main,
   margin-bottom: 0.4rem;
 }
 .cat { font-weight: 700; }
-.cat-hr { color: var(--hr); }
-.cat-world { color: var(--world); }
+.cat-hrvatska { color: var(--hr); }
+.cat-zagreb { color: var(--zagreb); }
+.cat-svijet { color: var(--world); }
+.cat-sport { color: var(--sport); }
 
 .deck { color: var(--muted); margin: 0 0 0.6rem; }
+
+/* ---------- Featured image (hotlinked from source, credited) ---------- */
+.story-image {
+  margin: 0 0 0.7rem;
+}
+.story-image img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.story-image figcaption {
+  margin-top: 0.3rem;
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-style: italic;
+}
+.card .story-image img { aspect-ratio: 16 / 10; }
 
 .story h2 a,
 .story h3 a { color: inherit; text-decoration: none; }
@@ -152,14 +179,23 @@ main,
   margin: 0 0 0.5rem;
 }
 .lead .deck { font-size: 1.1rem; }
-.lead .teaser { margin: 0 0 0.6rem; }
 
-/* ---------- Grid of teasers ---------- */
-.grid {
+/* ---------- Story rows: 1 hero, then 2-up, then 3-up (desktop) ---------- */
+.row-2,
+.grid-3 {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  grid-template-columns: 1fr;
   gap: 1.4rem 1.6rem;
+  margin-bottom: 1.4rem;
 }
+@media (min-width: 640px) {
+  .row-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 960px) {
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+}
+
 .card {
   padding-top: 1rem;
   border-top: 1px solid var(--line);
@@ -170,6 +206,13 @@ main,
   margin: 0 0 0.35rem;
 }
 .card .deck { font-size: 0.95rem; }
+
+/* Featured (2-up) cards run a size step larger than the plain 3-up grid. */
+.card-featured h3 {
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+.card-featured .deck { font-size: 1.02rem; }
 
 /* ---------- Article detail page ---------- */
 .article-page { max-width: var(--read); }
