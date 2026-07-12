@@ -168,6 +168,47 @@ no "hero" card; the grid, not the card, decides sizing, and because each grid
 holds a contiguous set of cards (nothing hidden client-side), the `:nth-child`
 rule that widens the first two cards always targets the real first row.
 
+## Deployment (trial hosting)
+
+For a live trial run, the app deploys via **GitHub Actions + Cloudflare
+Pages** rather than an always-on server — this fits the "boring, debuggable
+infra" philosophy better than a paid-tier server, and free-tier servers
+generally can't run this app correctly: their instances sleep when idle
+(breaking a reliable hourly cron) and don't include persistent disk (breaking
+SQLite between deploys).
+
+`.github/workflows/ingest-deploy.yml` runs hourly (GitHub's own scheduler,
+independent of any server staying awake — see the workflow file for why):
+
+1. Restores `data/news.db` from a dedicated `data` branch (the DB isn't
+   tracked on the code branch — see `.gitignore`).
+2. Runs one ingest cycle (`node src/index.js ingest`, `LLM_MODE=gemini`),
+   which updates the DB and regenerates `public/`.
+3. Deploys `public/` to Cloudflare Pages.
+4. Force-pushes a fresh single-commit snapshot of `data/news.db` back to the
+   `data` branch (snapshot-only, no history — the app's own
+   `ARTICLE_RETENTION_DAYS` already bounds what matters).
+
+### One-time setup
+
+1. **Cloudflare** (free account): create an API Token with `Account >
+   Cloudflare Pages > Edit` permission, and note your Account ID (both shown
+   in the Cloudflare dashboard).
+2. **GitHub repo secrets** (Settings → Secrets and variables → Actions):
+   - `GEMINI_API_KEY` — same value as local `.env`
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+3. Push `.github/workflows/ingest-deploy.yml` (already in the repo). The
+   first run creates the Cloudflare Pages project automatically. Trigger it
+   immediately via the Actions tab → "Ingest and deploy" → "Run workflow",
+   rather than waiting for the next hour.
+4. The live site is served at `https://no-clickbait-news-aggregator.pages.dev`
+   (shown in the Cloudflare dashboard and in each run's deploy log).
+
+Note: GitHub Actions gives private repos 2,000 free minutes/month — an hourly
+run for a week or two fits comfortably; running it hourly indefinitely for a
+full month is close to the cap.
+
 ## File layout
 
 ```

@@ -1,0 +1,80 @@
+name: Ingest and deploy
+
+# Replaces the app's own internal cron scheduler (src/scheduler.js / npm start)
+# for this deployment: GitHub's own scheduler fires this job on the hour,
+# independent of any server staying awake, which is what makes hourly
+# ingestion reliable on free hosting. See README's "Deployment" section.
+on:
+  schedule:
+    - cron: '0 * * * *' # every hour, on the hour (UTC)
+  workflow_dispatch: {} # manual "Run workflow" button, for testing
+
+permissions:
+  contents: write # needed to push the updated database to the `data` branch
+
+# Queue rather than overlap if a run is still going when the next one fires.
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The SQLite DB isn't tracked on the code branch (see .gitignore) — it
+      # lives on a separate `data` branch instead, so every ingest run starts
+      # by pulling forward whatever the last run left behind.
+      - name: Restore database from data branch
+        run: |
+          mkdir -p data
+          if git fetch origin data --depth=1 2>/dev/null; then
+            if git show origin/data:data/news.db > data/news.db 2>/dev/null; then
+              echo "restored existing database"
+            else
+              rm -f data/news.db
+              echo "data branch exists but has no news.db yet; starting fresh"
+            fi
+          else
+            echo "no data branch yet; starting fresh"
+          fi
+
+      - name: Run ingest
+        env:
+          LLM_MODE: gemini
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node src/index.js ingest
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: no-clickbait-news-aggregator
+          directory: public
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      # Snapshot-only: each run force-pushes a single fresh commit, so the
+      # `data` branch never accumulates history (the app's own retention is
+      # only ARTICLE_RETENTION_DAYS anyway — there's nothing worth keeping
+      # old DB snapshots for).
+      - name: Save database to data branch
+        run: |
+          git config user.name "news-aggregator-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout --orphan data-snapshot
+          git rm -rf --cached . > /dev/null
+          git add -f data/news.db
+          git commit -m "chore: update database ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+          git push origin data-snapshot:data --force
