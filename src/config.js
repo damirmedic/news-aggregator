@@ -63,7 +63,7 @@ export const config = {
     // the score, so genuine cross-portal matches land well above unrelated
     // stories that merely share a place or an institution. Tune if it
     // over/under-fires.
-    similarityThreshold: num(process.env.DEDUPE_SIMILARITY_THRESHOLD, 0.3),
+    similarityThreshold: num(process.env.DEDUPE_SIMILARITY_THRESHOLD, 0.24),
   },
   schedule: {
     // Default 60 -> the scheduler runs hourly at the top of each hour.

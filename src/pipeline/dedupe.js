@@ -75,6 +75,20 @@ function gramSet(joined) {
   return set;
 }
 
+// Cache each signature's trigram set, keyed by object identity — WITHOUT
+// mutating the signature (a stray property would otherwise leak into the JSON
+// that gets stored on the article row, then deserialize as a non-Set and break
+// the next run's comparison).
+const gramCache = new WeakMap();
+function gramsOf(sig) {
+  let g = gramCache.get(sig);
+  if (!g) {
+    g = gramSet(sig.w || '');
+    gramCache.set(sig, g);
+  }
+  return g;
+}
+
 /**
  * Proper-noun stems in `strings`. A word counts as an entity if it's
  * capitalized (proper noun) and not a generic institution. When `skipFirst`,
@@ -147,7 +161,7 @@ function jaccard(a, b) {
 export function similarity(a, b) {
   const e = jaccard(new Set(a.e), new Set(b.e));
   const n = jaccard(new Set(a.n), new Set(b.n));
-  const g = jaccard(a._g || (a._g = gramSet(a.w)), b._g || (b._g = gramSet(b.w)));
+  const g = jaccard(gramsOf(a), gramsOf(b));
   const num = W_ENTITY * e.inter + W_NUMBER * n.inter + W_GRAM * g.inter;
   const den = W_ENTITY * e.union + W_NUMBER * n.union + W_GRAM * g.union;
   return den === 0 ? 0 : num / den;

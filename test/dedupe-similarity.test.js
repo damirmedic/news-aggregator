@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildSignature, similarity, findDuplicate } from '../src/pipeline/dedupe.js';
 
-const THRESHOLD = 0.3; // matches config.dedupe.similarityThreshold default
+const THRESHOLD = 0.24; // matches config.dedupe.similarityThreshold default
 
 // Facts as the extractor would produce them for the same real event reported by
 // two different portals — the main entities/numbers are the same, the event
