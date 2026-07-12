@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shouldDrop, normalize } from '../src/pipeline/filter.js';
+import { shouldDrop, normalize, isTooOld } from '../src/pipeline/filter.js';
 
 test('normalize lowercases and strips Croatian diacritics', () => {
   assert.equal(normalize('ČAKOVEC Živjeli Đaci'), 'cakovec zivjeli daci');
@@ -72,4 +72,20 @@ test('drops magazine/lifestyle sections by URL path', () => {
     assert.equal(r.drop, true, `expected ${path} to be dropped`);
     assert.equal(r.reason, 'excluded-url-pattern');
   }
+});
+
+test('isTooOld flags items older than the max age', () => {
+  const thirtyHoursAgo = new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString();
+  assert.equal(isTooOld(thirtyHoursAgo, 24), true);
+});
+
+test('isTooOld keeps items within the max age', () => {
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  assert.equal(isTooOld(twoHoursAgo, 24), false);
+});
+
+test('isTooOld does not punish a missing or unparseable pubDate', () => {
+  assert.equal(isTooOld(null, 24), false);
+  assert.equal(isTooOld(undefined, 24), false);
+  assert.equal(isTooOld('not-a-date', 24), false);
 });

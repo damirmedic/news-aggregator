@@ -70,18 +70,34 @@ export function insertArticle(article) {
   return tx(article);
 }
 
-/** Published articles for the site, newest first. */
-export function getPublishedArticles({ limit = 200 } = {}) {
+/**
+ * Published articles for the site, newest first, within the retention
+ * window. The DB row stays forever regardless — this only bounds what
+ * generateSite() renders (see config.freshness.articleRetentionDays).
+ */
+export function getPublishedArticles({ sinceIso, limit = 500 } = {}) {
   return getDb()
     .prepare(
       `SELECT id, headline, subheadline, body, source_name AS sourceName,
               source_url AS sourceUrl, category, world_score AS worldScore,
               published_at AS publishedAt, image_url AS imageUrl
        FROM articles
+       WHERE published_at >= ?
        ORDER BY published_at DESC
        LIMIT ?`
     )
-    .all(limit);
+    .all(sinceIso ?? '0000-00-00', limit);
+}
+
+/**
+ * Recent articles' headline/subheadline, for cross-portal duplicate
+ * detection (see pipeline/dedupe.js). Not scoped to the retention window —
+ * a duplicate check should look back further than what's currently on-site.
+ */
+export function getRecentArticleSignatures(sinceIso) {
+  return getDb()
+    .prepare(`SELECT headline, subheadline FROM articles WHERE published_at >= ? ORDER BY published_at DESC`)
+    .all(sinceIso);
 }
 
 /** Count rows grouped by status — handy for run summaries / debugging. */

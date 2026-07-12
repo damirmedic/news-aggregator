@@ -6,16 +6,18 @@ import { migrate } from '../db/index.js';
 import {
   getActiveSources,
   getNewItemsForSource,
+  getRecentArticleSignatures,
   markFiltered,
   markStatus,
   insertArticle,
   statusCounts,
 } from '../db/queries.js';
 import { fetchSource } from './fetchFeeds.js';
-import { shouldDrop } from './filter.js';
+import { shouldDrop, isTooOld } from './filter.js';
 import { extractArticleText } from './extractText.js';
 import { extractFactsForItem } from './extractFacts.js';
 import { writeSummaryForItem } from './writeSummary.js';
+import { factsSignature, publishedSignature, findDuplicate } from './dedupe.js';
 import { generateSite } from '../publish/generate.js';
 import { offlineFeedFetch, offlineHtmlFetch } from '../fixtures/index.js';
 
@@ -33,7 +35,27 @@ export async function runIngestCycle({ offline = false, skipGenerate = false } =
   const sources = getActiveSources();
   log(`mode=${config.llm.mode} offline=${offline} active_sources=${sources.length}`);
 
-  const totals = { fetched: 0, filtered: 0, extractErrors: 0, nonNews: 0, belowThreshold: 0, published: 0 };
+  const totals = {
+    fetched: 0,
+    filtered: 0,
+    tooOld: 0,
+    extractErrors: 0,
+    nonNews: 0,
+    belowThreshold: 0,
+    duplicates: 0,
+    published: 0,
+  };
+
+  // In-memory duplicate-detection index: seeded from recently-published
+  // articles, then grown as this run itself publishes new ones — so two
+  // portals covering the same event in the same run still get caught, not
+  // just duplicates against prior runs.
+  const dedupeWindowMs = config.dedupe.windowHours * 60 * 60 * 1000;
+  const dedupeSinceIso = new Date(Date.now() - dedupeWindowMs).toISOString();
+  const recentSignatures = getRecentArticleSignatures(dedupeSinceIso).map((a) => ({
+    headline: a.headline,
+    tokens: publishedSignature(a),
+  }));
 
   // --- Phase 1: fetch feeds ---
   for (const source of sources) {
@@ -51,7 +73,7 @@ export async function runIngestCycle({ offline = false, skipGenerate = false } =
   for (const source of sources) {
     const items = getNewItemsForSource(source.id, config.ingest.maxItemsPerSource);
     for (const item of items) {
-      await processItem(item, source, { offline, totals });
+      await processItem(item, source, { offline, totals, recentSignatures });
     }
   }
 
@@ -64,12 +86,19 @@ export async function runIngestCycle({ offline = false, skipGenerate = false } =
   return totals;
 }
 
-async function processItem(item, source, { offline, totals }) {
+async function processItem(item, source, { offline, totals, recentSignatures }) {
   // Step 2: scope / junk filter
   const drop = shouldDrop({ title: item.title, link: item.link });
   if (drop.drop) {
     markFiltered(item.id, drop.reason);
     totals.filtered++;
+    return;
+  }
+
+  // Step 2b: freshness — keep the site current, not a backlog dump.
+  if (isTooOld(item.pubDate, config.freshness.maxAgeHours)) {
+    markFiltered(item.id, 'too-old');
+    totals.tooOld++;
     return;
   }
 
@@ -111,6 +140,15 @@ async function processItem(item, source, { offline, totals }) {
     return;
   }
 
+  // Step 4b: cross-portal duplicate check — before the (costlier) summary
+  // call, since a duplicate never gets published either way.
+  const duplicate = findDuplicate(factsSignature(facts), recentSignatures, config.dedupe.similarityThreshold);
+  if (duplicate) {
+    markFiltered(item.id, `duplicate-of: ${duplicate.headline.slice(0, 80)}`);
+    totals.duplicates++;
+    return;
+  }
+
   // Step 5: write summary + publish
   try {
     const summary = await writeSummaryForItem({ facts, sourceName: source.name, category });
@@ -133,6 +171,9 @@ async function processItem(item, source, { offline, totals }) {
       imageUrl,
     });
     totals.published++;
+    // Grow the in-run dedupe index so later items (possibly from other
+    // portals) get compared against this one too.
+    recentSignatures.push({ headline: summary.headline, tokens: publishedSignature(summary) });
   } catch (err) {
     markStatus(item.id, 'error', `summary: ${err.message}`);
     totals.extractErrors++;

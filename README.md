@@ -39,7 +39,9 @@ One ingestion cycle (`npm run ingest`, or every `INGEST_INTERVAL_MIN` under
 
 1. **Fetch** the RSS feed, insert new items into `raw_items` (deduped by URL).
 2. **Filter** out-of-scope junk (horoscopes, galleries, video-only, sponsored,
-   sports live-tickers, …) by pattern; dropped items keep a `filter_reason`.
+   sports live-tickers, …) by pattern, then drop anything older than
+   `FETCH_MAX_AGE_HOURS` by the source's own pubDate; dropped items keep a
+   `filter_reason`.
 3. **Extract full text** of each surviving article (readability), plus its
    real publish timestamp and featured-image URL from the page's own
    metadata (hotlinked with credit — see the CLAUDE.md caveat).
@@ -51,11 +53,20 @@ One ingestion cycle (`npm run ingest`, or every `INGEST_INTERVAL_MIN` under
    content — not just which portal or feed it came from), and, for
    world-track items, a 0–10 importance score dropped below
    `WORLD_SCORE_THRESHOLD`.
+4b. **Duplicate check**: with 11 Croatian portals active, the same event often
+   gets reported by several of them. Before writing a summary, the extracted
+   facts are compared (word-overlap similarity, no extra LLM call) against
+   recently-published articles; a close enough match is dropped as
+   `duplicate-of: <headline>` rather than published again. See
+   `src/pipeline/dedupe.js`; tune via `DEDUPE_WINDOW_HOURS` /
+   `DEDUPE_SIMILARITY_THRESHOLD`.
 5. **Write summary** (LLM call 2): plain headline / subheadline / body,
    generated from the facts only (never the original prose). This two-step
    split is the copyright-safety mechanism, not just a nice-to-have.
 6. **Publish**: insert into `articles` with the source's real publish date,
-   regenerate `public/index.html` + one detail page per article.
+   regenerate `public/index.html` + one detail page per article. Only
+   articles published within `ARTICLE_RETENTION_DAYS` are rendered — older
+   ones age out of the live site (their DB row is kept regardless).
 
 ### Stub vs. Gemini vs. Anthropic
 
@@ -85,7 +96,9 @@ summary, lower `MAX_ITEMS_PER_SOURCE` in `.env`.
 ## Configuration
 
 All config is via `.env` (see [`.env.example`](./.env.example) for every option
-and its default): LLM mode/model/key, world-importance threshold, ingest
+and its default): LLM mode/model/key, world-importance threshold, freshness
+(`FETCH_MAX_AGE_HOURS`) and retention (`ARTICLE_RETENTION_DAYS`), duplicate
+detection (`DEDUPE_WINDOW_HOURS`, `DEDUPE_SIMILARITY_THRESHOLD`), ingest
 interval, DB path, preview port, per-source item caps, fetch timeout.
 
 ## Sources & categories
@@ -111,20 +124,31 @@ general "vijesti" feed).
 To add a source: verify the RSS URL resolves to real XML first (`curl`), then
 add a row to `src/sources.js` and re-run `npm run migrate`.
 
-## Layout
+## Front page layout
+
+One flat grid of story cards (`.story-grid` in `src/publish/templates.js` +
+`styles.css`). When the "Sve" (all) filter is active, the first 3 cards get a
+larger hero + 2-up "featured" visual treatment via CSS `:nth-child` — purely
+presentational, every card is the same markup. Selecting a specific category
+(Hrvatska/Zagreb/Svijet/Sport) adds a `.filtered` class that disables that
+CSS, so any filtered view is always a plain, uniform 3-up grid (2-up tablet,
+1-up mobile) — there's no sensible "hero" once the visible set no longer
+starts at the site's actual most recent story.
+
+## File layout
 
 ```
 db/schema.sql          Table definitions (sources, raw_items, articles)
 src/config.js          Env-driven config
 src/sources.js         Source seed list (HR + world)
 src/db/                SQLite connection, migration, queries
-src/pipeline/          fetchFeeds, filter, extractText, extractFacts, writeSummary, run
+src/pipeline/          fetchFeeds, filter, extractText, extractFacts, dedupe, writeSummary, run
 src/llm/               Gemini + Anthropic clients, prompts, deterministic stub
 src/publish/           Static HTML generator + templates
 src/scheduler.js       node-cron loop (npm start)
 src/serve.js           node:http static preview server
 src/index.js           CLI: migrate | ingest | generate | serve | start
-test/                  Unit tests for filter + dedupe
+test/                  Unit tests for filter, freshness, dedupe (URL + similarity)
 ```
 
 ## Status

@@ -1,7 +1,9 @@
 // HTML templates for the static site — a plain, newspaper-style news portal.
 // String templates only, no framework (deliberately boring per CLAUDE.md).
-// Mobile-first, fast-loading, restrained typography. The front page shows a
-// lead story + a grid of teasers; each headline links to a full detail page.
+// Mobile-first, fast-loading, restrained typography. The front page is one
+// flat grid of story cards; the first 3 get a larger hero/featured CSS
+// treatment when unfiltered (see storyCard()). Each headline links to a full
+// detail page.
 
 /** Escape text for safe insertion into HTML. */
 export function esc(str) {
@@ -111,27 +113,21 @@ function storyImage(a, { eager = false } = {}) {
   </figure>`;
 }
 
-/** The lead (hero) story on the front page — headline + short summary only. */
-function leadStory(a) {
+/**
+ * A story card. On the front page, DOM position 1-3 get a larger "hero" /
+ * "featured" visual treatment via CSS (see .story-grid:not(.filtered) in
+ * styles.css) — purely presentational, not a different template. That CSS
+ * rule is disabled whenever a category filter is active, so a filtered view
+ * (e.g. "Svijet") always renders as a plain, uniform 3-up grid — there's no
+ * sensible "hero" once the set of visible cards no longer starts at the
+ * front page's actual most-recent story.
+ */
+function storyCard(a, { eager = false } = {}) {
   const href = `article/${a.id}.html`;
   const sub = a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : '';
   return `
-<article class="story lead" data-category="${esc(a.category)}">
-  ${storyImage(a, { eager: true })}
-  <div class="meta">${categoryChip(a.category)}<time datetime="${esc(a.publishedAt)}">${esc(formatDateTime(a.publishedAt))}</time></div>
-  <h2><a href="${esc(href)}">${esc(a.headline)}</a></h2>
-  ${sub}
-  <p class="source">Izvor: <a href="${esc(a.sourceUrl)}" rel="noopener noreferrer nofollow" target="_blank">${esc(a.sourceName)}</a> · <a class="more" href="${esc(href)}">cijeli sažetak →</a></p>
-</article>`;
-}
-
-/** A teaser card. `size` is 'featured' (the 2-up row) or 'grid' (3-up rows). */
-function storyCard(a, { size = 'grid' } = {}) {
-  const href = `article/${a.id}.html`;
-  const sub = a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : '';
-  return `
-<article class="story card card-${size}" data-category="${esc(a.category)}">
-  ${storyImage(a, { eager: size === 'featured' })}
+<article class="story" data-category="${esc(a.category)}">
+  ${storyImage(a, { eager })}
   <div class="meta">${categoryChip(a.category)}<time datetime="${esc(a.publishedAt)}">${esc(formatDateTime(a.publishedAt))}</time></div>
   <h3><a href="${esc(href)}">${esc(a.headline)}</a></h3>
   ${sub}
@@ -140,27 +136,14 @@ function storyCard(a, { size = 'grid' } = {}) {
 }
 
 /**
- * Full front page. `articles` newest-first: 1 hero lead, then a 2-up
- * featured row, then the rest in a 3-up grid (desktop; fewer columns on
- * smaller screens — see .row-2 / .grid-3 in styles.css).
+ * Full front page. `articles` newest-first, rendered as one flat grid — see
+ * storyCard() above for how the "Sve" hero/featured treatment works.
  */
 export function frontPage({ articles, generatedAt }) {
-  const [lead, ...rest] = articles;
-  const row2 = rest.slice(0, 2);
-  const gridRest = rest.slice(2);
-
-  const sections = [
-    lead ? leadStory(lead) : '',
-    row2.length
-      ? `<section class="row-2" aria-label="Istaknute vijesti">\n${row2.map((a) => storyCard(a, { size: 'featured' })).join('\n')}\n</section>`
-      : '',
-    gridRest.length
-      ? `<section class="grid-3" aria-label="Najnovije vijesti">\n${gridRest.map((a) => storyCard(a, { size: 'grid' })).join('\n')}\n</section>`
-      : '',
-  ].filter(Boolean);
-
   const body = articles.length
-    ? sections.join('\n')
+    ? `<div id="feed" class="story-grid" aria-label="Vijesti">\n${articles
+        .map((a, i) => storyCard(a, { eager: i < 3 }))
+        .join('\n')}\n</div>`
     : '<p class="empty">Još nema objavljenih sažetaka. Pokrenite <code>npm run ingest</code>.</p>';
 
   return `<!doctype html>
@@ -168,19 +151,23 @@ export function frontPage({ articles, generatedAt }) {
 ${head({ title: 'Vijesti — bez clickbaita' })}
 <body>
   ${masthead({ generatedAt, withFilter: true })}
-  <main id="feed">
+  <main>
     ${body}
   </main>
   ${siteFooter({ count: articles.length, generatedAt })}
   <script>
-    // Minimal client-side category filter — no dependencies.
+    // Minimal client-side category filter — no dependencies. Toggling
+    // "filtered" on the grid also disables the hero/featured CSS sizing for
+    // the first 3 cards, so any single-category view is a plain 3-up grid.
     (function () {
       var buttons = document.querySelectorAll('.filters button');
+      var grid = document.getElementById('feed');
       var stories = document.querySelectorAll('#feed .story');
       buttons.forEach(function (btn) {
         btn.addEventListener('click', function () {
           var f = btn.getAttribute('data-filter');
           buttons.forEach(function (b) { b.classList.toggle('active', b === btn); });
+          if (grid) grid.classList.toggle('filtered', f !== 'all');
           stories.forEach(function (el) {
             el.style.display = (f === 'all' || el.getAttribute('data-category') === f) ? '' : 'none';
           });

@@ -77,3 +77,16 @@ export function shouldDrop({ title, link }) {
 
   return { drop: false, reason: null };
 }
+
+/**
+ * Is this item older than `maxAgeHours` by its own reported pubDate? A
+ * missing/unparseable pubDate returns false — we don't punish items we can't
+ * date, we just can't confirm they're fresh.
+ */
+export function isTooOld(pubDate, maxAgeHours) {
+  if (!pubDate) return false;
+  const publishedMs = new Date(pubDate).getTime();
+  if (!Number.isFinite(publishedMs)) return false;
+  const ageHours = (Date.now() - publishedMs) / (60 * 60 * 1000);
+  return ageHours > maxAgeHours;
+}

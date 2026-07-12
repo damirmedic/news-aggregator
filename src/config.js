@@ -40,6 +40,27 @@ export const config = {
     // World/EU items must score >= this (0-10) to be published (90/10 split).
     worldScoreThreshold: num(process.env.WORLD_SCORE_THRESHOLD, 7),
   },
+  freshness: {
+    // Feed items older than this (by the source's own pubDate) are filtered
+    // before processing — keeps the site current, not a backlog dump.
+    maxAgeHours: num(process.env.FETCH_MAX_AGE_HOURS, 24),
+    // How long a published article stays on the live site (front page +
+    // detail page). The DB row itself is kept indefinitely (cheap, useful
+    // for future search/history features) — this only bounds what
+    // generateSite() renders.
+    articleRetentionDays: num(process.env.ARTICLE_RETENTION_DAYS, 7),
+  },
+  dedupe: {
+    // How far back to compare new articles against for cross-portal
+    // duplicate detection (the same event reported by several portals).
+    windowHours: num(process.env.DEDUPE_WINDOW_HOURS, 48),
+    // Jaccard trigram-overlap threshold above which two articles are treated
+    // as the same story. Empirically, a genuine same-event match (candidate
+    // facts vs. an already-published headline) scores ~0.3-0.9; unrelated
+    // stories score ~0.05-0.15. 0.25 sits with margin on both sides — tune
+    // if it over/under-fires.
+    similarityThreshold: num(process.env.DEDUPE_SIMILARITY_THRESHOLD, 0.25),
+  },
   schedule: {
     ingestIntervalMin: num(process.env.INGEST_INTERVAL_MIN, 45),
   },

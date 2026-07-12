@@ -16,7 +16,9 @@ const STYLES_SRC = path.resolve(__dirname, 'assets/styles.css');
  * @returns {{ count: number, outPath: string }}
  */
 export function generateSite() {
-  const articles = getPublishedArticles();
+  const retentionMs = config.freshness.articleRetentionDays * 24 * 60 * 60 * 1000;
+  const sinceIso = new Date(Date.now() - retentionMs).toISOString();
+  const articles = getPublishedArticles({ sinceIso });
   const generatedAt = new Date().toISOString();
 
   const outDir = config.paths.publicDir;
