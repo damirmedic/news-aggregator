@@ -41,12 +41,21 @@ export function factExtractionPrompt({ title, bodyText, track }) {
     '  "when": string|null,    // time/date of the event',
     '  "where": string|null,   // location',
     '  "why": string|null,     // cause / significance, if stated',
-    '  "numbers": [string],    // key figures (amounts, counts, dates)',
+    '  "numbers": [string],    // key figures — see the numbers rule below',
     '  "quotes": [ { "text": string, "speaker": string } ], // <=15 words each, verbatim, attributable',
     '  "world_importance": number|null,',
     '  "is_current_news": boolean,',
     '  "category": "hrvatska" | "zagreb" | "svijet" | "sport"',
     '}',
+    'Numbers rule: every entry in "numbers" MUST state the figure together with',
+    'its unit AND what it refers to, exactly as the article states it — e.g.',
+    '"450 glazbenika u projektu", "23 milijuna eura vrijednost škole", "2:1',
+    'rezultat utakmice". NEVER output a bare number. The next processing step',
+    'sees only your JSON, not the article, so a number without its referent',
+    'will be misinterpreted.',
+    'Extract ONLY what the article explicitly states. If you are not certain',
+    'what a figure refers to, omit it entirely. Never infer, estimate, convert',
+    'units, or combine figures. Omitting is always better than guessing.',
     worldScoring,
     'Set "is_current_news" to false for content that is not a report of a',
     'specific current event — historical retrospectives ("on this day",',
@@ -79,14 +88,19 @@ export function factExtractionPrompt({ title, bodyText, track }) {
  * @param category the article's own classified display category (from the
  *   fact-extraction step), used only as light context here — not the
  *   source's track.
+ * @param feedback optional rejection notes from the numeric-consistency
+ *   verifier (pipeline/verify.js) when a previous attempt invented or
+ *   re-attached figures; triggers one corrective rewrite.
  */
-export function summaryPrompt({ facts, sourceName, category }) {
+export function summaryPrompt({ facts, sourceName, category, feedback }) {
   const system = [
     'You are an old-school wire-service reporter writing for a Croatian news',
     'site. From a structured fact-list (never any original article text), you',
     'write a plain, factual summary IN CROATIAN (hrvatski), always — the',
     'site\'s entire audience is Croatian, regardless of the story\'s origin or',
     'the language of the facts you were given.',
+    'The fact-list is your ONLY source. You never add information that is not',
+    'in it — no background knowledge, no assumptions, no invented detail.',
     'No clickbait, no rhetorical questions, no emotional or sensational framing,',
     'no speculation, no editorializing. Inverted pyramid: most important first.',
     'Output ONLY valid JSON, no prose, no code fences.',
@@ -102,9 +116,29 @@ export function summaryPrompt({ facts, sourceName, category }) {
     '{',
     '  "headline": string,      // <= ~12 words; subject + verb + object; plain, no wordplay',
     '  "subheadline": string,   // one sentence; the second most important fact',
-    '  "body": string           // 200-500 words; inverted pyramid; plain reporting style',
+    '  "body": string           // inverted pyramid; plain reporting style; length rule below',
     '}',
-    'At most one short quoted fragment (<=15 words). Report severity plainly; never sensationalize.',
+    'STRICT RULES:',
+    '- Use ONLY the facts above. Nothing else exists for this task.',
+    '- Every number, date, name and quote in your output must appear in the',
+    '  facts with the SAME meaning and unit. Copy figures exactly as given —',
+    '  never round, convert, derive new figures, or attach a figure to a',
+    '  different thing than the facts attach it to.',
+    '- Length: up to ~400 words, and only as long as the facts support. If the',
+    '  fact-list is thin, write a short summary — 80 accurate words beat 300',
+    '  padded ones. NEVER pad with generalities or invented detail.',
+    '- At most one short quoted fragment (<=15 words), verbatim from the facts.',
+    '- Report severity plainly; never sensationalize.',
+    ...(feedback
+      ? [
+          '',
+          'YOUR PREVIOUS ATTEMPT WAS REJECTED by an automatic fact-checker:',
+          feedback,
+          'Rewrite the summary. Remove or correct every flagged figure; use',
+          'figures ONLY exactly as they appear in the facts, attached to',
+          'exactly what the facts attach them to.',
+        ]
+      : []),
   ].join('\n');
 
   return { system, user };

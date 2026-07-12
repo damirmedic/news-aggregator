@@ -73,9 +73,18 @@ itself.
    original text), generate:
    - Headline (plain, factual, ≤ ~12 words)
    - Subheadline (one sentence, adds the next layer of detail)
-   - Body summary (200–500 words, plain reporting style)
+   - Body summary (up to ~400-500 words, plain reporting style; **amended
+     2026-07-12:** the 200-word *minimum* was removed — a hard floor
+     pressured the model to pad thin fact-lists with invented detail, and a
+     real hallucination traced back to exactly that. Length now scales with
+     the extracted facts; short-but-accurate beats long-but-padded.)
    This call never sees the original prose — only the extracted facts —
    which is what keeps the output from being a close paraphrase.
+5b. **Verify (added 2026-07-12, no LLM):** deterministic numeric-consistency
+   guard between the three text layers — figures in the facts must exist in
+   the source, figures in the summary must exist in the facts *with the same
+   adjacent unit/referent*. One corrective retry, then the item is dropped
+   automatically (never queued for review). See `src/pipeline/verify.js`.
 6. **Source + credit:** Store source name + original URL, displayed with
    every summary. No verbatim quotes longer than ~10-15 words, ever, and
    at most one short quoted fragment per article.

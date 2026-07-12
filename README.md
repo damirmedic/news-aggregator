@@ -83,6 +83,25 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
 5. **Write summary** (LLM call 2): plain headline / subheadline / body,
    generated from the facts only (never the original prose). This two-step
    split is the copyright-safety mechanism, not just a nice-to-have.
+5b. **Hallucination guard** (`src/pipeline/verify.js`, no LLM call): the
+   two-step split has a known failure mode — any ambiguity in the facts JSON
+   invites the writer (which never sees the article) to fill the gap. An
+   observed real case: a source's "project involving 450 musicians" became a
+   published "450-minute album". Numbers are the one fact class that's
+   mechanically checkable (they survive translation and rewording), so the
+   pipeline now enforces, deterministically:
+   - every figure in the extracted facts must appear in the source article
+     (unsupported `numbers[]` entries are dropped; an invented figure in a
+     core field rejects the item);
+   - every figure in the written summary must appear in the facts, **and**
+     the word immediately following it must too — which is what catches
+     "450 glazbenika" being re-attached as "450 minuta";
+   - a failing summary gets one corrective rewrite with the verifier's
+     findings fed back, then the item is dropped, never published.
+   Alongside: extraction runs at temperature 0 / summary at 0.2, `numbers[]`
+   entries must be self-describing ("450 glazbenika u projektu", never a bare
+   "450"), and the body word-count *minimum* was removed — padding pressure
+   on thin fact-lists is itself a hallucination driver.
 6. **Publish**: insert into `articles` with the source's real publish date,
    then regenerate the whole static site — `public/index.html` (the sectioned
    front page), one `public/category/<cat>.html` per category, and one

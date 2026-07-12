@@ -9,7 +9,8 @@
 //     display category below — an admitted world-track item can still be
 //     filed under any category (e.g. a major sport story stays 'sport').
 import { config } from '../config.js';
-import { extractFacts as llmExtractFacts } from '../llm/client.js';
+import { extractFacts as llmExtractFacts, isLive } from '../llm/client.js';
+import { verifyFacts } from './verify.js';
 
 const VALID_CATEGORIES = new Set(['hrvatska', 'zagreb', 'svijet', 'sport']);
 
@@ -25,7 +26,21 @@ function resolveCategory(rawCategory, track) {
  * @returns {Promise<{ facts: object, worldScore: number|null, isCurrentNews: boolean, category: string, passesGate: boolean }>}
  */
 export async function extractFactsForItem({ title, bodyText, track }) {
-  const facts = await llmExtractFacts({ title, bodyText, track });
+  let facts = await llmExtractFacts({ title, bodyText, track });
+
+  // Hallucination guard (pipeline/verify.js): figures in the extracted facts
+  // must exist in the source article. Numbers are language-invariant, so this
+  // holds even for translated (world-track) items. Unsupported entries in the
+  // auxiliary `numbers` array are dropped silently; an invented figure in a
+  // core field rejects the item outright.
+  if (isLive()) {
+    const checked = verifyFacts(facts, `${title}\n${bodyText}`);
+    if (checked.problems.length > 0) {
+      throw new Error(`hallucination-guard: ${checked.problems.join('; ')}`);
+    }
+    facts = checked.facts;
+  }
+
   const isCurrentNews = facts.is_current_news !== false;
   const category = resolveCategory(facts.category, track);
 

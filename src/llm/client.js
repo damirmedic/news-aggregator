@@ -28,10 +28,11 @@ export function isLive() {
  * Call Anthropic with a system+user prompt and parse a single JSON object out
  * of the reply. Tolerates accidental code fences / surrounding prose.
  */
-async function completeJsonAnthropic({ system, user, maxTokens }) {
+async function completeJsonAnthropic({ system, user, maxTokens, temperature }) {
   const res = await getAnthropic().messages.create({
     model: config.llm.model,
     max_tokens: maxTokens,
+    temperature,
     system,
     messages: [{ role: 'user', content: user }],
   });
@@ -56,7 +57,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * sources firing sequential calls, so 429s get a few exponential-backoff
  * retries before giving up — everything else fails immediately.
  */
-async function completeJsonGemini({ system, user }) {
+async function completeJsonGemini({ system, user, temperature }) {
   for (let attempt = 0; ; attempt++) {
     try {
       const res = await getGemini().models.generateContent({
@@ -65,6 +66,7 @@ async function completeJsonGemini({ system, user }) {
         config: {
           systemInstruction: system,
           responseMimeType: 'application/json',
+          temperature,
         },
       });
       return parseJsonObject(res.text);
@@ -85,21 +87,32 @@ function parseJsonObject(text) {
   return JSON.parse(fenced.slice(start, end + 1));
 }
 
-async function completeJson({ system, user }) {
-  if (config.llm.mode === 'gemini') return completeJsonGemini({ system, user });
-  return completeJsonAnthropic({ system, user, maxTokens: 1500 });
+async function completeJson({ system, user, temperature }) {
+  if (config.llm.mode === 'gemini') return completeJsonGemini({ system, user, temperature });
+  return completeJsonAnthropic({ system, user, maxTokens: 1500, temperature });
 }
+
+// Low temperatures on purpose — both calls are transcription-shaped, not
+// creative, and sampling randomness is a direct hallucination vector here.
+// Extraction is fully greedy (0); the writer gets a whisper of variation (0.2)
+// so retried summaries don't reproduce the exact rejected output.
+const EXTRACT_TEMPERATURE = 0;
+const SUMMARY_TEMPERATURE = 0.2;
 
 /** LLM call 1 — extract structured facts (+ world importance, category) from body. */
 export async function extractFacts({ title, bodyText, track }) {
   if (!isLive()) return extractFactsStub({ title, bodyText, track });
   const { system, user } = factExtractionPrompt({ title, bodyText, track });
-  return completeJson({ system, user });
+  return completeJson({ system, user, temperature: EXTRACT_TEMPERATURE });
 }
 
-/** LLM call 2 — write a plain summary from facts only. */
-export async function writeSummary({ facts, sourceName, category }) {
+/**
+ * LLM call 2 — write a plain summary from facts only. `feedback` carries
+ * verifier rejection notes for the single corrective retry (see
+ * pipeline/writeSummary.js).
+ */
+export async function writeSummary({ facts, sourceName, category, feedback }) {
   if (!isLive()) return writeSummaryStub({ facts, sourceName });
-  const { system, user } = summaryPrompt({ facts, sourceName, category });
-  return completeJson({ system, user });
+  const { system, user } = summaryPrompt({ facts, sourceName, category, feedback });
+  return completeJson({ system, user, temperature: SUMMARY_TEMPERATURE });
 }
