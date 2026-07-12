@@ -10,6 +10,7 @@ import {
   markFiltered,
   markStatus,
   insertArticle,
+  requeueRateLimitedErrors,
   statusCounts,
 } from '../db/queries.js';
 import { fetchSource } from './fetchFeeds.js';
@@ -34,6 +35,11 @@ export async function runIngestCycle({ offline = false, skipGenerate = false } =
 
   const sources = getActiveSources();
   log(`mode=${config.llm.mode} offline=${offline} active_sources=${sources.length}`);
+
+  // Give last cycle's rate-limit casualties another chance while they're
+  // still fresh (see requeueRateLimitedErrors — too-old ones die cleanly).
+  const requeued = requeueRateLimitedErrors();
+  if (requeued > 0) log(`re-queued ${requeued} rate-limited items from previous runs`);
 
   const totals = {
     fetched: 0,

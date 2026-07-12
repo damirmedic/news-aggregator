@@ -77,14 +77,35 @@ async function completeJsonGemini({ system, user, temperature }) {
   }
 }
 
-function parseJsonObject(text) {
-  const fenced = text.replace(/```(?:json)?/gi, '');
+/**
+ * Parse the first complete JSON object out of a model reply. Tolerates code
+ * fences, surrounding prose, AND trailing junk after the object (including a
+ * duplicated second object — observed live as "Unexpected non-whitespace
+ * character after JSON" failures): a brace-balance scan (string-aware) finds
+ * where the first object actually ends instead of trusting the last "}".
+ * Exported for tests.
+ */
+export function parseJsonObject(text) {
+  const fenced = String(text ?? '').replace(/```(?:json)?/gi, '');
   const start = fenced.indexOf('{');
-  const end = fenced.lastIndexOf('}');
-  if (start === -1 || end === -1 || end < start) {
-    throw new Error(`LLM did not return JSON: ${text.slice(0, 200)}`);
+  if (start === -1) {
+    throw new Error(`LLM did not return JSON: ${String(text).slice(0, 200)}`);
   }
-  return JSON.parse(fenced.slice(start, end + 1));
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < fenced.length; i++) {
+    const ch = fenced[i];
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\') { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}' && --depth === 0) {
+      return JSON.parse(fenced.slice(start, i + 1));
+    }
+  }
+  throw new Error(`LLM returned truncated JSON: ${String(text).slice(0, 200)}`);
 }
 
 async function completeJson({ system, user, temperature }) {

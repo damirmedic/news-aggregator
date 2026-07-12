@@ -102,6 +102,23 @@ export function getRecentArticleSignatures(sinceIso) {
     .all(sinceIso);
 }
 
+/**
+ * Re-queue items that errored on a rate limit (HTTP 429) so the next cycle
+ * retries them — quota exhaustion is transient (resets daily on the Gemini
+ * free tier) and shouldn't permanently swallow an hour of news. Naturally
+ * bounded: once a re-queued item ages past FETCH_MAX_AGE_HOURS it gets
+ * filtered as too-old instead of retrying forever.
+ */
+export function requeueRateLimitedErrors() {
+  const info = getDb()
+    .prepare(
+      `UPDATE raw_items SET status = 'new', filter_reason = NULL
+       WHERE status = 'error' AND filter_reason LIKE '%429%'`
+    )
+    .run();
+  return info.changes;
+}
+
 /** Count rows grouped by status — handy for run summaries / debugging. */
 export function statusCounts() {
   const rows = getDb()
