@@ -32,6 +32,7 @@ export function migrate() {
   // CREATE TABLE IF NOT EXISTS doesn't add columns to an already-existing
   // table, so new nullable columns need an explicit additive migration.
   ensureColumn(database, 'articles', 'image_url', 'TEXT');
+  ensureColumn(database, 'articles', 'dedupe_sig', 'TEXT');
   seedSources(database);
   return database;
 }

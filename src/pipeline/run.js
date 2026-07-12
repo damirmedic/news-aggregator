@@ -17,7 +17,7 @@ import { shouldDrop, isTooOld } from './filter.js';
 import { extractArticleText } from './extractText.js';
 import { extractFactsForItem } from './extractFacts.js';
 import { writeSummaryForItem } from './writeSummary.js';
-import { factsSignature, publishedSignature, findDuplicate } from './dedupe.js';
+import { buildSignature, findDuplicate } from './dedupe.js';
 import { generateSite } from '../publish/generate.js';
 import { offlineFeedFetch, offlineHtmlFetch } from '../fixtures/index.js';
 
@@ -54,7 +54,7 @@ export async function runIngestCycle({ offline = false, skipGenerate = false } =
   const dedupeSinceIso = new Date(Date.now() - dedupeWindowMs).toISOString();
   const recentSignatures = getRecentArticleSignatures(dedupeSinceIso).map((a) => ({
     headline: a.headline,
-    tokens: publishedSignature(a),
+    sig: parseSignature(a.dedupeSig),
   }));
 
   // --- Phase 1: fetch feeds ---
@@ -141,8 +141,11 @@ async function processItem(item, source, { offline, totals, recentSignatures }) 
   }
 
   // Step 4b: cross-portal duplicate check — before the (costlier) summary
-  // call, since a duplicate never gets published either way.
-  const duplicate = findDuplicate(factsSignature(facts), recentSignatures, config.dedupe.similarityThreshold);
+  // call, since a duplicate never gets published either way. The signature is
+  // built from the extracted facts (entities/numbers/event), then reused as
+  // this article's own stored signature if it does get published.
+  const signature = buildSignature(facts);
+  const duplicate = findDuplicate(signature, recentSignatures, config.dedupe.similarityThreshold);
   if (duplicate) {
     markFiltered(item.id, `duplicate-of: ${duplicate.headline.slice(0, 80)}`);
     totals.duplicates++;
@@ -169,15 +172,29 @@ async function processItem(item, source, { offline, totals, recentSignatures }) 
       // Hotlinked from the source, never downloaded/stored — see the image
       // credit rendered alongside it in publish/templates.js.
       imageUrl,
+      // Persist the signature so future runs can dedupe against this article.
+      dedupeSig: JSON.stringify(signature),
     });
     totals.published++;
     // Grow the in-run dedupe index so later items (possibly from other
-    // portals) get compared against this one too.
-    recentSignatures.push({ headline: summary.headline, tokens: publishedSignature(summary) });
+    // portals) get compared against this one too — same signature we stored.
+    recentSignatures.push({ headline: summary.headline, sig: signature });
   } catch (err) {
     markStatus(item.id, 'error', `summary: ${err.message}`);
     totals.extractErrors++;
   }
+}
+
+/** Parse a stored dedupe signature JSON string; null if absent/corrupt. */
+function parseSignature(json) {
+  if (!json) return null;
+  try {
+    const sig = JSON.parse(json);
+    if (sig && Array.isArray(sig.e) && Array.isArray(sig.n) && typeof sig.w === 'string') return sig;
+  } catch {
+    // fall through
+  }
+  return null;
 }
 
 /** First valid date among the given candidates, in caller-specified priority order. */

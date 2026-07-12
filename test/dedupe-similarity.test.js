@@ -1,43 +1,91 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { factsSignature, publishedSignature, findDuplicate } from '../src/pipeline/dedupe.js';
+import { buildSignature, similarity, findDuplicate } from '../src/pipeline/dedupe.js';
 
-test('finds a duplicate when the same event is described with different wording', () => {
-  const candidate = factsSignature({
-    what: 'Hajduk je pobijedio Žilinu rezultatom 2:0 u prvoj utakmici prvog pretkola Europske lige',
-    who: ['Hajduk', 'Žilina'],
-  });
-  const recent = [
+const THRESHOLD = 0.3; // matches config.dedupe.similarityThreshold default
+
+// Facts as the extractor would produce them for the same real event reported by
+// two different portals — the main entities/numbers are the same, the event
+// wording differs. These pairs are drawn from actual missed duplicates.
+const CLUSTERS = {
+  englandNorway: [
     {
-      headline: 'Hajduk pobijedio Žilinu 2:0 u prvom pretkolu Europske lige na Poljudu',
-      tokens: publishedSignature({
-        headline: 'Hajduk pobijedio Žilinu 2:0 u prvom pretkolu Europske lige na Poljudu',
-        subheadline: 'Splitska momčad ostvarila je pobjedu pred više od 22 tisuće gledatelja.',
-      }),
+      who: ['Engleska', 'Norveška'],
+      what: 'Engleska je pobijedila Norvešku i plasirala se u polufinale Svjetskog prvenstva',
+      where: 'Miami',
+      numbers: ['2:1'],
     },
-  ];
-  const match = findDuplicate(candidate, recent, 0.25);
-  assert.ok(match, 'expected a duplicate match');
-  assert.equal(match.headline, recent[0].headline);
-});
+    {
+      who: ['Engleska', 'Norveška', 'Jude Bellingham'],
+      what: 'Engleska pobijedila Norvešku u četvrtfinalu Svjetskog prvenstva nakon spornoga pogotka',
+      where: 'Miami',
+      numbers: ['2:1'],
+    },
+  ],
+  korculaFire: [
+    {
+      who: ['vatrogasci'],
+      what: 'Vatrogasci gase šumski požar na nepristupačnom terenu na otoku Korčuli',
+      where: 'Korčula',
+      numbers: ['3'],
+    },
+    {
+      who: ['vatrogasci'],
+      what: 'Vatrogasne snage gase šumski požar na nepristupačnom terenu otoka Korčule',
+      where: 'Korčula',
+      numbers: ['3'],
+    },
+  ],
+};
 
-test('does not flag unrelated stories as duplicates', () => {
-  const candidate = factsSignature({
-    what: 'Vlada je donijela odluku o povećanju minimalne plaće za sljedeću godinu',
+for (const [name, [a, b]] of Object.entries(CLUSTERS)) {
+  test(`same event across portals is a duplicate: ${name}`, () => {
+    const sig = buildSignature(a);
+    const recent = [{ headline: 'već objavljeno', sig: buildSignature(b) }];
+    assert.ok(
+      similarity(sig, recent[0].sig) >= THRESHOLD,
+      `expected similarity >= ${THRESHOLD}`
+    );
+    assert.ok(findDuplicate(sig, recent, THRESHOLD), 'expected a duplicate match');
+  });
+}
+
+test('two different government decisions are NOT duplicates (shared institution only)', () => {
+  const a = buildSignature({
     who: ['Vlada Republike Hrvatske'],
+    what: 'Vlada je donijela odluku o povećanju minimalne plaće',
+    where: 'Zagreb',
+    numbers: ['970'],
   });
-  const recent = [
-    {
-      headline: 'Hajduk pobijedio Žilinu 2:0 u prvom pretkolu Europske lige',
-      tokens: publishedSignature({
-        headline: 'Hajduk pobijedio Žilinu 2:0 u prvom pretkolu Europske lige',
-        subheadline: null,
-      }),
-    },
-  ];
-  assert.equal(findDuplicate(candidate, recent, 0.25), null);
+  const b = buildSignature({
+    who: ['Vlada Republike Hrvatske'],
+    what: 'Vlada je odlučila financirati obnovu željezničke pruge',
+    where: 'Zagreb',
+    numbers: ['300'],
+  });
+  assert.ok(similarity(a, b) < THRESHOLD, 'shared "Vlada"/"Zagreb" must not merge distinct decisions');
+  assert.equal(findDuplicate(a, [{ headline: 'x', sig: b }], THRESHOLD), null);
 });
 
-test('returns null when the candidate signature is empty', () => {
-  assert.equal(findDuplicate([], [{ tokens: ['x', 'y'], headline: 'a' }], 0.25), null);
+test('unrelated sport stories are NOT duplicates', () => {
+  const a = buildSignature(CLUSTERS.englandNorway[0]);
+  const b = buildSignature({
+    who: ['Hajduk', 'Dinamo'],
+    what: 'Hajduk i Dinamo odigrali neriješeno u hrvatskom derbiju',
+    where: 'Split',
+    numbers: ['1:1'],
+  });
+  assert.ok(similarity(a, b) < THRESHOLD);
+  assert.equal(findDuplicate(a, [{ headline: 'x', sig: b }], THRESHOLD), null);
+});
+
+test('findDuplicate returns the most similar match, and null for an empty signature', () => {
+  const target = buildSignature(CLUSTERS.korculaFire[1]);
+  const recent = [
+    { headline: 'nepovezano', sig: buildSignature(CLUSTERS.englandNorway[0]) },
+    { headline: 'isti požar', sig: target },
+  ];
+  const match = findDuplicate(buildSignature(CLUSTERS.korculaFire[0]), recent, THRESHOLD);
+  assert.equal(match.headline, 'isti požar');
+  assert.equal(findDuplicate({ e: [], n: [], w: '' }, recent, THRESHOLD), null);
 });

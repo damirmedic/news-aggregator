@@ -59,9 +59,9 @@ export function insertArticle(article) {
       .prepare(
         `INSERT INTO articles
            (raw_item_id, headline, subheadline, body, source_name, source_url,
-            category, world_score, published_at, image_url)
+            category, world_score, published_at, image_url, dedupe_sig)
          VALUES (@rawItemId, @headline, @subheadline, @body, @sourceName, @sourceUrl,
-            @category, @worldScore, @publishedAt, @imageUrl)`
+            @category, @worldScore, @publishedAt, @imageUrl, @dedupeSig)`
       )
       .run(a);
     db.prepare(`UPDATE raw_items SET status = 'published' WHERE id = ?`).run(a.rawItemId);
@@ -90,13 +90,15 @@ export function getPublishedArticles({ sinceIso, limit = 500 } = {}) {
 }
 
 /**
- * Recent articles' headline/subheadline, for cross-portal duplicate
- * detection (see pipeline/dedupe.js). Not scoped to the retention window —
- * a duplicate check should look back further than what's currently on-site.
+ * Recent articles' stored duplicate-detection signatures (see
+ * pipeline/dedupe.js), for catching the same story across portals. Not scoped
+ * to the retention window — a duplicate check should look back further than
+ * what's currently on-site. Returns the raw JSON `dedupeSig` string; the caller
+ * parses it (keeps this layer free of the signature format).
  */
 export function getRecentArticleSignatures(sinceIso) {
   return getDb()
-    .prepare(`SELECT headline, subheadline FROM articles WHERE published_at >= ? ORDER BY published_at DESC`)
+    .prepare(`SELECT headline, dedupe_sig AS dedupeSig FROM articles WHERE published_at >= ? ORDER BY published_at DESC`)
     .all(sinceIso);
 }
 

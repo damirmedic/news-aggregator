@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS articles (
   category     TEXT    NOT NULL CHECK (category IN ('hrvatska', 'zagreb', 'svijet', 'sport')),
   world_score  INTEGER,                               -- 0-10 for world-track items, NULL for hr-track
   published_at TEXT    NOT NULL,                      -- ISO-8601, from the source (see run.js)
-  image_url    TEXT                                   -- hotlinked source featured image; see CLAUDE.md caveat
+  image_url    TEXT,                                  -- hotlinked source featured image; see CLAUDE.md caveat
+  dedupe_sig   TEXT                                   -- JSON signature for cross-portal dedup; see pipeline/dedupe.js
 );
 
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);

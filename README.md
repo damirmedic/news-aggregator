@@ -55,15 +55,31 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
    content — not just which portal or feed it came from), and, for
    world-track items, a 0–10 importance score dropped below
    `WORLD_SCORE_THRESHOLD`.
-4b. **Duplicate check**: with 11 Croatian portals active, the same event often
-   gets reported by several of them. Before writing a summary, the extracted
-   facts are compared (character-trigram Jaccard similarity, no extra LLM call)
-   against recently-published articles; a close enough match is dropped as
-   `duplicate-of: <headline>` rather than published again. Trigrams (not whole
-   words) are what make this work in Croatian — case declension gives the same
-   noun different endings ("Žilina"/"Žilinu"), so whole-word overlap
-   under-counts genuine matches. See `src/pipeline/dedupe.js`; tune via
-   `DEDUPE_WINDOW_HOURS` / `DEDUPE_SIMILARITY_THRESHOLD`.
+4b. **Duplicate check**: with ~11 Croatian portals active, the same event often
+   gets reported by several of them within the same hour, worded differently.
+   Before writing a summary, a **signature** is built from the extracted facts
+   — the named entities (`who`/`where`), the key numbers (ages, scores,
+   amounts, casualty counts), and character trigrams of the core event — and
+   scored against recently-published articles by a **weighted Jaccard** where
+   shared entities and numbers count far more than shared wording (no extra LLM
+   call). A close enough match is dropped as `duplicate-of: <headline>`.
+   - Why not compare the summaries directly? Each portal's article is
+     summarized independently, so even the same event produces quite different
+     prose — lexical overlap alone misses it. The *entities and numbers* are
+     what stay stable across portals ("Norveška", "41", "Korčula"), so those
+     drive the score.
+   - Croatian case declension ("Norveška"/"Norvešku", "Korčula"/"Korčule") is
+     handled by stemming entities and by the trigrams — both robust to changing
+     word endings.
+   - A generic-entity stoplist ("Vlada", "Hrvatska", "policija", …) keeps two
+     *different* government or police stories from merging just because they
+     share an institution; with those dropped, distinct stories fall back to
+     their (differing) event text.
+   - The signature is stored on the article row (`articles.dedupe_sig`), so
+     later runs dedupe against it symmetrically.
+
+   See `src/pipeline/dedupe.js`; tune via `DEDUPE_WINDOW_HOURS` /
+   `DEDUPE_SIMILARITY_THRESHOLD`.
 5. **Write summary** (LLM call 2): plain headline / subheadline / body,
    generated from the facts only (never the original prose). This two-step
    split is the copyright-safety mechanism, not just a nice-to-have.

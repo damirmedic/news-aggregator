@@ -57,12 +57,13 @@ export const config = {
     // How far back to compare new articles against for cross-portal
     // duplicate detection (the same event reported by several portals).
     windowHours: num(process.env.DEDUPE_WINDOW_HOURS, 48),
-    // Jaccard trigram-overlap threshold above which two articles are treated
-    // as the same story. Empirically, a genuine same-event match (candidate
-    // facts vs. an already-published headline) scores ~0.3-0.9; unrelated
-    // stories score ~0.05-0.15. 0.25 sits with margin on both sides — tune
-    // if it over/under-fires.
-    similarityThreshold: num(process.env.DEDUPE_SIMILARITY_THRESHOLD, 0.25),
+    // Weighted-Jaccard threshold (entities + numbers + event trigrams; see
+    // pipeline/dedupe.js) above which two articles are treated as the same
+    // story and the later one dropped. Shared named entities/numbers dominate
+    // the score, so genuine cross-portal matches land well above unrelated
+    // stories that merely share a place or an institution. Tune if it
+    // over/under-fires.
+    similarityThreshold: num(process.env.DEDUPE_SIMILARITY_THRESHOLD, 0.3),
   },
   schedule: {
     // Default 60 -> the scheduler runs hourly at the top of each hour.
