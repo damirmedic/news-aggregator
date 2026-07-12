@@ -42,8 +42,11 @@ export const config = {
   },
   freshness: {
     // Feed items older than this (by the source's own pubDate) are filtered
-    // before processing — keeps the site current, not a backlog dump.
-    maxAgeHours: num(process.env.FETCH_MAX_AGE_HOURS, 24),
+    // before the expensive full-text + LLM steps. Default 1h matches the
+    // hourly schedule: each run only processes the last hour's fresh items.
+    // (URL-dedupe already guarantees nothing is processed twice, so a slightly
+    // larger window would just add resilience against a missed run, not cost.)
+    maxAgeHours: num(process.env.FETCH_MAX_AGE_HOURS, 1),
     // How long a published article stays on the live site (front page +
     // detail page). The DB row itself is kept indefinitely (cheap, useful
     // for future search/history features) — this only bounds what
@@ -62,7 +65,8 @@ export const config = {
     similarityThreshold: num(process.env.DEDUPE_SIMILARITY_THRESHOLD, 0.25),
   },
   schedule: {
-    ingestIntervalMin: num(process.env.INGEST_INTERVAL_MIN, 45),
+    // Default 60 -> the scheduler runs hourly at the top of each hour.
+    ingestIntervalMin: num(process.env.INGEST_INTERVAL_MIN, 60),
   },
   paths: {
     db: resolveFromRoot(process.env.DB_PATH || './data/news.db'),

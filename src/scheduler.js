@@ -23,10 +23,12 @@ async function tick({ offline }) {
 
 export function startScheduler({ offline = false } = {}) {
   const min = Math.max(1, Math.round(config.schedule.ingestIntervalMin));
-  // Cron step syntax spaces evenly only for divisors of 60 (15, 20, 30, ...).
-  // Non-divisors (e.g. 45 -> fires at :00 and :45) are uneven but harmless here.
-  const expr = `*/${min} * * * *`;
-  console.log(`[scheduler] starting; every ${min} min (cron "${expr}"), llm=${config.llm.mode}`);
+  // Default cadence is hourly, at the top of each hour (":00"). For 60, use an
+  // explicit `0 * * * *` rather than `*/60` so it's unambiguous. Sub-hour
+  // intervals (e.g. 15 for testing) fall back to step syntax, which spaces
+  // evenly only for divisors of 60.
+  const expr = min === 60 ? '0 * * * *' : `*/${min} * * * *`;
+  console.log(`[scheduler] starting; ${min === 60 ? 'hourly at :00' : `every ${min} min`} (cron "${expr}"), llm=${config.llm.mode}`);
 
   // Run once on boot so the site isn't empty until the first interval elapses.
   tick({ offline });

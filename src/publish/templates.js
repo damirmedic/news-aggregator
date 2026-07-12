@@ -1,9 +1,13 @@
 // HTML templates for the static site — a plain, newspaper-style news portal.
 // String templates only, no framework (deliberately boring per CLAUDE.md).
-// Mobile-first, fast-loading, restrained typography. The front page is one
-// flat grid of story cards; the first 3 get a larger hero/featured CSS
-// treatment when unfiltered (see storyCard()). Each headline links to a full
-// detail page.
+// Mobile-first, fast-loading, restrained typography.
+//
+// Layout model (see styles.css .story-grid): every grid renders its first row
+// as 2 cards and every following row as 3 (desktop). There's no "hero" card —
+// the same rule applies on the homepage sections and on each category page, so
+// a category view looks the same as a homepage section. Navigation is plain
+// links to real pages (no client-side filtering), so the whole site works
+// without JavaScript.
 
 /** Escape text for safe insertion into HTML. */
 export function esc(str) {
@@ -15,7 +19,13 @@ export function esc(str) {
     .replace(/'/g, '&#39;');
 }
 
-const CATEGORY_LABEL = { hrvatska: 'Hrvatska', zagreb: 'Zagreb', svijet: 'Svijet', sport: 'Sport' };
+// Category display order + labels. This is the single source of truth for
+// which categories get a homepage section, a nav item, and a /category page.
+export const CATEGORIES = ['hrvatska', 'zagreb', 'svijet', 'sport'];
+export const CATEGORY_LABEL = { hrvatska: 'Hrvatska', zagreb: 'Zagreb', svijet: 'Svijet', sport: 'Sport' };
+
+// How many articles each homepage section shows (1 row of 2 + 2 rows of 3).
+const SECTION_SIZE = 8;
 
 const HR_MONTHS = [
   'siječnja', 'veljače', 'ožujka', 'travnja', 'svibnja', 'lipnja',
@@ -55,9 +65,14 @@ function renderBody(body) {
     .join('\n');
 }
 
-/** Shared <head>. depth=0 for the front page, 1 for pages under /article/. */
+/** Relative path prefix from a page at the given depth back to public/ root. */
+function prefixFor(depth) {
+  return '../'.repeat(depth);
+}
+
+/** Shared <head>. depth=0 for the front page, 1 for pages one level down. */
 function head({ title, depth = 0 }) {
-  const css = `${'../'.repeat(depth)}assets/styles.css`;
+  const css = `${prefixFor(depth)}assets/styles.css`;
   return `<head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -67,23 +82,31 @@ function head({ title, depth = 0 }) {
 </head>`;
 }
 
-/** The masthead. On the front page it carries the dateline + category filter. */
-function masthead({ generatedAt, withFilter = false, homeHref = '#' }) {
-  const home = withFilter
+/**
+ * The masthead with its category navigation. `active` is the key of the
+ * currently-open view ('all' for the homepage, a category key on a category
+ * page, or null on the article page). Nav items are plain links resolved
+ * relative to `depth`.
+ */
+function masthead({ generatedAt, active = 'all', depth = 0 }) {
+  const prefix = prefixFor(depth);
+  const homeHref = `${prefix}index.html`;
+  const home = active === 'all'
     ? '<h1>Vijesti — bez clickbaita</h1>'
     : `<h1><a href="${esc(homeHref)}">Vijesti — bez clickbaita</a></h1>`;
   const dateline = generatedAt
     ? `<p class="dateline">${esc(croatianDateLong(generatedAt))}</p>`
     : '';
-  const nav = withFilter
-    ? `<nav class="filters" aria-label="Filter po kategoriji">
-      <button type="button" class="active" data-filter="all">Sve</button>
-      <button type="button" data-filter="hrvatska">Hrvatska</button>
-      <button type="button" data-filter="zagreb">Zagreb</button>
-      <button type="button" data-filter="svijet">Svijet</button>
-      <button type="button" data-filter="sport">Sport</button>
-    </nav>`
-    : `<p class="back"><a href="${esc(homeHref)}">← Sve vijesti</a></p>`;
+
+  const navItems = [
+    { key: 'all', label: 'Sve', href: homeHref },
+    ...CATEGORIES.map((key) => ({ key, label: CATEGORY_LABEL[key], href: `${prefix}category/${key}.html` })),
+  ];
+  const nav = `<nav class="filters" aria-label="Kategorije">
+      ${navItems
+        .map((it) => `<a href="${esc(it.href)}"${active === it.key ? ' class="active" aria-current="page"' : ''}>${esc(it.label)}</a>`)
+        .join('\n      ')}
+    </nav>`;
 
   return `<header class="site-header">
     <div class="masthead">
@@ -114,16 +137,12 @@ function storyImage(a, { eager = false } = {}) {
 }
 
 /**
- * A story card. On the front page, DOM position 1-3 get a larger "hero" /
- * "featured" visual treatment via CSS (see .story-grid:not(.filtered) in
- * styles.css) — purely presentational, not a different template. That CSS
- * rule is disabled whenever a category filter is active, so a filtered view
- * (e.g. "Svijet") always renders as a plain, uniform 3-up grid — there's no
- * sensible "hero" once the set of visible cards no longer starts at the
- * front page's actual most-recent story.
+ * A story card. Uniform everywhere — the grid, not the card, decides sizing
+ * (first row 2-up, then 3-up). `prefix` resolves the detail-page link relative
+ * to the page the card is rendered on (homepage vs. /category).
  */
-function storyCard(a, { eager = false } = {}) {
-  const href = `article/${a.id}.html`;
+function storyCard(a, { eager = false, prefix = '' } = {}) {
+  const href = `${prefix}article/${a.id}.html`;
   const sub = a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : '';
   return `
 <article class="story" data-category="${esc(a.category)}">
@@ -135,46 +154,95 @@ function storyCard(a, { eager = false } = {}) {
 </article>`;
 }
 
+/** A grid of story cards. `eagerCount` cards load their image eagerly. */
+function storyGrid(articles, { eagerCount = 0, prefix = '' } = {}) {
+  return `<div class="story-grid">\n${articles
+    .map((a, i) => storyCard(a, { eager: i < eagerCount, prefix }))
+    .join('\n')}\n</div>`;
+}
+
 /**
- * Full front page. `articles` newest-first, rendered as one flat grid — see
- * storyCard() above for how the "Sve" hero/featured treatment works.
+ * A homepage section: a titled block of up to SECTION_SIZE cards, optionally
+ * followed by a "read all" link to the full category page.
+ */
+function homeSection({ title, articles, readAll, eagerCount = 0 }) {
+  const more = readAll
+    ? `\n  <p class="section-more"><a href="${esc(readAll.href)}">${esc(readAll.label)} →</a></p>`
+    : '';
+  return `<section class="feed-section">
+  <h2 class="section-title">${esc(title)}</h2>
+  ${storyGrid(articles, { eagerCount, prefix: '' })}${more}
+</section>`;
+}
+
+/**
+ * Front page. Newest-first `articles`, split into a mixed "Najnovije" strip
+ * plus one section per category that has articles. Each category section links
+ * to its full /category page.
  */
 export function frontPage({ articles, generatedAt }) {
-  const body = articles.length
-    ? `<div id="feed" class="story-grid" aria-label="Vijesti">\n${articles
-        .map((a, i) => storyCard(a, { eager: i < 3 }))
-        .join('\n')}\n</div>`
-    : '<p class="empty">Još nema objavljenih sažetaka. Pokrenite <code>npm run ingest</code>.</p>';
+  let main;
+  if (!articles.length) {
+    main = '<p class="empty">Još nema objavljenih sažetaka. Pokrenite <code>npm run ingest</code>.</p>';
+  } else {
+    const sections = [
+      homeSection({
+        title: 'Najnovije',
+        articles: articles.slice(0, SECTION_SIZE),
+        eagerCount: 3,
+      }),
+    ];
+    for (const key of CATEGORIES) {
+      const inCat = articles.filter((a) => a.category === key).slice(0, SECTION_SIZE);
+      if (!inCat.length) continue;
+      sections.push(
+        homeSection({
+          title: CATEGORY_LABEL[key],
+          articles: inCat,
+          readAll: { href: `category/${key}.html`, label: `Pročitaj sve vijesti u kategoriji ${CATEGORY_LABEL[key]}` },
+        })
+      );
+    }
+    main = sections.join('\n');
+  }
 
   return `<!doctype html>
 <html lang="hr">
 ${head({ title: 'Vijesti — bez clickbaita' })}
 <body>
-  ${masthead({ generatedAt, withFilter: true })}
+  ${masthead({ generatedAt, active: 'all', depth: 0 })}
   <main>
-    ${body}
+    ${main}
   </main>
   ${siteFooter({ count: articles.length, generatedAt })}
-  <script>
-    // Minimal client-side category filter — no dependencies. Toggling
-    // "filtered" on the grid also disables the hero/featured CSS sizing for
-    // the first 3 cards, so any single-category view is a plain 3-up grid.
-    (function () {
-      var buttons = document.querySelectorAll('.filters button');
-      var grid = document.getElementById('feed');
-      var stories = document.querySelectorAll('#feed .story');
-      buttons.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var f = btn.getAttribute('data-filter');
-          buttons.forEach(function (b) { b.classList.toggle('active', b === btn); });
-          if (grid) grid.classList.toggle('filtered', f !== 'all');
-          stories.forEach(function (el) {
-            el.style.display = (f === 'all' || el.getAttribute('data-category') === f) ? '' : 'none';
-          });
-        });
-      });
-    })();
-  </script>
+</body>
+</html>
+`;
+}
+
+/**
+ * A full category page: every article in one category, newest-first, in the
+ * same 2-then-3 grid used everywhere else. Lives at public/category/{key}.html
+ * (depth 1), so links back up use a "../" prefix.
+ */
+export function categoryPage({ categoryKey, articles, generatedAt }) {
+  const label = CATEGORY_LABEL[categoryKey] || categoryKey;
+  const body = articles.length
+    ? storyGrid(articles, { eagerCount: 3, prefix: '../' })
+    : '<p class="empty">Trenutačno nema vijesti u ovoj kategoriji.</p>';
+
+  return `<!doctype html>
+<html lang="hr">
+${head({ title: `${label} — Vijesti`, depth: 1 })}
+<body>
+  ${masthead({ generatedAt, active: categoryKey, depth: 1 })}
+  <main>
+    <section class="feed-section">
+      <h2 class="section-title">${esc(label)}</h2>
+      ${body}
+    </section>
+  </main>
+  ${siteFooter({ count: articles.length, generatedAt })}
 </body>
 </html>
 `;
@@ -186,7 +254,7 @@ export function articlePage({ article: a, generatedAt }) {
 <html lang="hr">
 ${head({ title: `${a.headline} — Vijesti`, depth: 1 })}
 <body>
-  ${masthead({ generatedAt, withFilter: false, homeHref: '../index.html' })}
+  ${masthead({ generatedAt, active: null, depth: 1 })}
   <main class="article-page">
     <article class="story full" data-category="${esc(a.category)}">
       ${storyImage(a, { eager: true })}

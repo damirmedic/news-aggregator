@@ -96,22 +96,19 @@ main,
   font-size: 0.95rem;
 }
 
+/* Category navigation — plain links styled as pills (no JS filtering). */
 .filters { display: flex; gap: 0.4rem; flex-wrap: wrap; padding-bottom: 0.9rem; }
-.filters button {
-  font: inherit;
+.filters a {
   font-size: 0.85rem;
   padding: 0.3rem 0.85rem;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--text);
   border-radius: 999px;
-  cursor: pointer;
+  text-decoration: none;
 }
-.filters button.active { background: var(--text); color: var(--bg); border-color: var(--text); }
-
-.back { margin: 0 0 0.9rem; font-family: -apple-system, system-ui, sans-serif; font-size: 0.85rem; }
-.back a { color: var(--muted); text-decoration: none; }
-.back a:hover { color: var(--accent); }
+.filters a:hover { border-color: var(--muted); text-decoration: none; }
+.filters a.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 
 /* ---------- Shared story bits ---------- */
 .meta {
@@ -168,21 +165,20 @@ main,
 
 /*
  * ---------- Story grid ----------
- * One flat grid. Default: every card is a uniform 3-up (desktop) / 2-up
- * (tablet) / 1-up (mobile) cell — this is what a filtered view (e.g.
- * "Svijet") always looks like, since .filtered disables the rules below.
- *
- * Unfiltered ("Sve") only: DOM position 1 becomes a full-width hero and
- * positions 2-3 become a featured 2-up row, via nth-child — purely visual,
- * same markup as every other card (see storyCard() in templates.js). A
- * 6-column base grid divides evenly into both the 3-up default and the 2-up
- * featured row.
+ * One layout everywhere — homepage sections and category pages alike: the
+ * first row is 2 cards, every following row is 3 (desktop). No "hero" card;
+ * sizing is the grid's job, not the card's. A 6-column base divides evenly
+ * into both a 2-up first row (span 3) and 3-up rows (span 2). Because each
+ * grid holds a contiguous set of cards (no client-side hiding), nth-child
+ * addresses the real first row reliably.
+ *   mobile  (<640px): 1 column
+ *   tablet  (640-959px): 2 columns throughout
+ *   desktop (>=960px): row 1 = 2 cards, rows 2+ = 3 cards
  */
 .story-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.4rem 1.6rem;
-  margin-bottom: 1rem;
 }
 .story {
   padding-top: 1rem;
@@ -197,34 +193,32 @@ main,
 
 @media (min-width: 640px) {
   .story-grid { grid-template-columns: repeat(6, 1fr); }
-  .story-grid > .story { grid-column: span 3; }
+  .story-grid > .story { grid-column: span 3; } /* 2-up */
 }
 @media (min-width: 960px) {
-  .story-grid > .story { grid-column: span 2; }
+  .story-grid > .story { grid-column: span 2; } /* rows 2+ : 3-up */
+  .story-grid > .story:nth-child(1),
+  .story-grid > .story:nth-child(2) { grid-column: span 3; } /* row 1 : 2-up */
 }
 
-.story-grid:not(.filtered) > .story:nth-child(1) {
-  border-top: none;
-  padding-top: 0;
+/* ---------- Homepage sections + category pages ---------- */
+.feed-section { margin-bottom: 2.4rem; }
+.feed-section:last-of-type { margin-bottom: 1rem; }
+.section-title {
+  font-size: 1.15rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin: 0 0 1.1rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--rule);
 }
-.story-grid:not(.filtered) > .story:nth-child(1) h3 {
-  font-size: clamp(1.6rem, 4.2vw, 2.2rem);
-  line-height: 1.15;
+.section-more {
+  margin: 1.2rem 0 0;
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 0.9rem;
 }
-.story-grid:not(.filtered) > .story:nth-child(1) .deck { font-size: 1.1rem; }
-.story-grid:not(.filtered) > .story:nth-child(2) h3,
-.story-grid:not(.filtered) > .story:nth-child(3) h3 {
-  font-size: 1.45rem;
-  line-height: 1.2;
-}
-.story-grid:not(.filtered) > .story:nth-child(2) .deck,
-.story-grid:not(.filtered) > .story:nth-child(3) .deck { font-size: 1.02rem; }
-
-@media (min-width: 640px) {
-  .story-grid:not(.filtered) > .story:nth-child(1) { grid-column: 1 / -1; }
-  .story-grid:not(.filtered) > .story:nth-child(2),
-  .story-grid:not(.filtered) > .story:nth-child(3) { grid-column: span 3; }
-}
+.section-more a { color: var(--accent); text-decoration: none; font-weight: 700; }
+.section-more a:hover { text-decoration: underline; }
 
 /* ---------- Article detail page ---------- */
 .article-page { max-width: var(--read); }

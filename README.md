@@ -34,14 +34,16 @@ npm run serve               # preview the generated site at http://localhost:417
 
 ## How it runs (the pipeline)
 
-One ingestion cycle (`npm run ingest`, or every `INGEST_INTERVAL_MIN` under
-`npm start`) does, per active source:
+One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
+`npm start` — see `INGEST_INTERVAL_MIN`) does, per active source:
 
-1. **Fetch** the RSS feed, insert new items into `raw_items` (deduped by URL).
+1. **Fetch** the RSS feed, insert new items into `raw_items` (deduped by URL, so
+   nothing already fetched is fetched or processed twice).
 2. **Filter** out-of-scope junk (horoscopes, galleries, video-only, sponsored,
    sports live-tickers, …) by pattern, then drop anything older than
    `FETCH_MAX_AGE_HOURS` by the source's own pubDate; dropped items keep a
-   `filter_reason`.
+   `filter_reason`. The default (1h) pairs with the hourly schedule: each run
+   only pays for the full-text + LLM steps on the last hour's fresh items.
 3. **Extract full text** of each surviving article (readability), plus its
    real publish timestamp and featured-image URL from the page's own
    metadata (hotlinked with credit — see the CLAUDE.md caveat).
@@ -55,18 +57,22 @@ One ingestion cycle (`npm run ingest`, or every `INGEST_INTERVAL_MIN` under
    `WORLD_SCORE_THRESHOLD`.
 4b. **Duplicate check**: with 11 Croatian portals active, the same event often
    gets reported by several of them. Before writing a summary, the extracted
-   facts are compared (word-overlap similarity, no extra LLM call) against
-   recently-published articles; a close enough match is dropped as
-   `duplicate-of: <headline>` rather than published again. See
-   `src/pipeline/dedupe.js`; tune via `DEDUPE_WINDOW_HOURS` /
-   `DEDUPE_SIMILARITY_THRESHOLD`.
+   facts are compared (character-trigram Jaccard similarity, no extra LLM call)
+   against recently-published articles; a close enough match is dropped as
+   `duplicate-of: <headline>` rather than published again. Trigrams (not whole
+   words) are what make this work in Croatian — case declension gives the same
+   noun different endings ("Žilina"/"Žilinu"), so whole-word overlap
+   under-counts genuine matches. See `src/pipeline/dedupe.js`; tune via
+   `DEDUPE_WINDOW_HOURS` / `DEDUPE_SIMILARITY_THRESHOLD`.
 5. **Write summary** (LLM call 2): plain headline / subheadline / body,
    generated from the facts only (never the original prose). This two-step
    split is the copyright-safety mechanism, not just a nice-to-have.
 6. **Publish**: insert into `articles` with the source's real publish date,
-   regenerate `public/index.html` + one detail page per article. Only
-   articles published within `ARTICLE_RETENTION_DAYS` are rendered — older
-   ones age out of the live site (their DB row is kept regardless).
+   then regenerate the whole static site — `public/index.html` (the sectioned
+   front page), one `public/category/<cat>.html` per category, and one
+   `public/article/<id>.html` detail page. Only articles published within
+   `ARTICLE_RETENTION_DAYS` are rendered — older ones age out of the live site,
+   though their DB row is kept regardless, so the archive is never lost.
 
 ### Stub vs. Gemini vs. Anthropic
 
@@ -97,9 +103,11 @@ summary, lower `MAX_ITEMS_PER_SOURCE` in `.env`.
 
 All config is via `.env` (see [`.env.example`](./.env.example) for every option
 and its default): LLM mode/model/key, world-importance threshold, freshness
-(`FETCH_MAX_AGE_HOURS`) and retention (`ARTICLE_RETENTION_DAYS`), duplicate
-detection (`DEDUPE_WINDOW_HOURS`, `DEDUPE_SIMILARITY_THRESHOLD`), ingest
-interval, DB path, preview port, per-source item caps, fetch timeout.
+(`FETCH_MAX_AGE_HOURS`, default 1h) and retention (`ARTICLE_RETENTION_DAYS`,
+default 7 days), duplicate detection (`DEDUPE_WINDOW_HOURS`,
+`DEDUPE_SIMILARITY_THRESHOLD`), ingest interval (`INGEST_INTERVAL_MIN`, default
+60 → hourly at `:00`), DB path, preview port, per-source item caps, fetch
+timeout.
 
 ## Sources & categories
 
@@ -124,16 +132,25 @@ general "vijesti" feed).
 To add a source: verify the RSS URL resolves to real XML first (`curl`), then
 add a row to `src/sources.js` and re-run `npm run migrate`.
 
-## Front page layout
+## Front page layout & navigation
 
-One flat grid of story cards (`.story-grid` in `src/publish/templates.js` +
-`styles.css`). When the "Sve" (all) filter is active, the first 3 cards get a
-larger hero + 2-up "featured" visual treatment via CSS `:nth-child` — purely
-presentational, every card is the same markup. Selecting a specific category
-(Hrvatska/Zagreb/Svijet/Sport) adds a `.filtered` class that disables that
-CSS, so any filtered view is always a plain, uniform 3-up grid (2-up tablet,
-1-up mobile) — there's no sensible "hero" once the visible set no longer
-starts at the site's actual most recent story.
+The site is fully static — no client-side JavaScript, navigation is plain
+links.
+
+- **`index.html`** is a sectioned overview: a mixed **Najnovije** strip (the 8
+  newest across all categories) followed by one section per category
+  (Hrvatska / Zagreb / Svijet / Sport), each showing its 8 newest and ending
+  in a *"Pročitaj sve vijesti u kategoriji …"* link to the full category page.
+- **`category/<cat>.html`** lists every article in that category (within the
+  retention window). The masthead nav links to these pages and highlights the
+  active one.
+
+Every grid — homepage sections and category pages alike — uses the same
+`.story-grid` rule (`src/publish/templates.js` + `styles.css`): **first row 2
+cards, every following row 3** on desktop (2-up tablet, 1-up mobile). There's
+no "hero" card; the grid, not the card, decides sizing, and because each grid
+holds a contiguous set of cards (nothing hidden client-side), the `:nth-child`
+rule that widens the first two cards always targets the real first row.
 
 ## File layout
 
