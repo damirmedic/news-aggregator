@@ -35,19 +35,47 @@ const HR_WEEKDAYS = [
   'nedjelja', 'ponedjeljak', 'utorak', 'srijeda', 'četvrtak', 'petak', 'subota',
 ];
 
-/** Long Croatian dateline, e.g. "subota, 11. srpnja 2026." (UTC-based). */
+const ZAGREB_TZ = 'Europe/Zagreb';
+
+// hourCycle: 'h23' (not hour12: false) avoids a well-known Intl quirk where
+// midnight can render as "24" instead of "00" in some engines.
+const ZAGREB_PARTS_FMT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: ZAGREB_TZ,
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+/**
+ * Y/M/D/H/Min of `d` in Croatia's local time — CET (UTC+1) or CEST (UTC+2)
+ * depending on the date, resolved automatically via the IANA tz database
+ * rather than a hardcoded offset (which would be wrong for half the year).
+ */
+function zagrebParts(d) {
+  const p = Object.fromEntries(ZAGREB_PARTS_FMT.formatToParts(d).map((x) => [x.type, x.value]));
+  return {
+    year: Number(p.year), month: Number(p.month), day: Number(p.day),
+    hour: Number(p.hour), minute: Number(p.minute),
+  };
+}
+
+/** Long Croatian dateline, e.g. "subota, 11. srpnja 2026." (Europe/Zagreb local time). */
 function croatianDateLong(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return `${HR_WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()}. ${HR_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}.`;
+  const { year, month, day } = zagrebParts(d);
+  // Weekday only depends on the calendar date, so anchoring at UTC midnight
+  // for this lookup is safe once year/month/day are already Zagreb-local.
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return `${HR_WEEKDAYS[weekday]}, ${day}. ${HR_MONTHS[month - 1]} ${year}.`;
 }
 
-/** Short timestamp for cards/detail, e.g. "11.07.2026. 08:05". */
+/** Short timestamp for cards/detail, e.g. "11.07.2026. 08:05" (Europe/Zagreb local time). */
 function formatDateTime(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
+  const { year, month, day, hour, minute } = zagrebParts(d);
   const p = (n) => String(n).padStart(2, '0');
-  return `${p(d.getUTCDate())}.${p(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}. ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+  return `${p(day)}.${p(month)}.${year}. ${p(hour)}:${p(minute)}`;
 }
 
 /** Split plain body text (blank-line paragraphs) into an array of paragraphs. */
