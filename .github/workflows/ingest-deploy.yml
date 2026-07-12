@@ -63,7 +63,11 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: no-clickbait-news-aggregator
           directory: public
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          # gitHubToken intentionally omitted: it's only used to post a GitHub
+          # "Deployment" status back to the commit/PR UI, which needs a
+          # deployments:write permission we don't otherwise need for a
+          # personal, non-PR workflow. Omitting it skips that optional step
+          # entirely rather than widening the token's permissions.
 
       # Snapshot-only: each run force-pushes a single fresh commit, so the
       # `data` branch never accumulates history (the app's own retention is
