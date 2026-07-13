@@ -14,6 +14,7 @@ import {
   statusCounts,
 } from '../db/queries.js';
 import { fetchSource } from './fetchFeeds.js';
+import { isLive } from '../llm/client.js';
 import { shouldDrop, isTooOld } from './filter.js';
 import { extractArticleText } from './extractText.js';
 import { extractFactsForItem } from './extractFacts.js';
@@ -49,6 +50,7 @@ export async function runIngestCycle({ offline = false, skipGenerate = false } =
     nonNews: 0,
     belowThreshold: 0,
     duplicates: 0,
+    deferred: 0,
     published: 0,
   };
 
@@ -75,12 +77,28 @@ export async function runIngestCycle({ offline = false, skipGenerate = false } =
     }
   }
 
-  // --- Phase 2: process new items per source ---
+  // --- Phase 2: process new items under a per-run LLM call budget ---
+  // One global queue, newest first ACROSS sources — with a fixed per-source
+  // loop, whichever source is seeded first would eat the whole budget and
+  // sources later in the list would never get processed while a backlog
+  // exists. The budget rations the Gemini free tier's hard daily request cap
+  // across all of the day's runs (see config.ingest.llmCallBudget); over-
+  // budget items stay 'new' for the next run until freshness ages them out.
+  // Stub mode has no real quota, so no budget applies there.
+  const queue = [];
   for (const source of sources) {
-    const items = getNewItemsForSource(source.id, config.ingest.maxItemsPerSource);
-    for (const item of items) {
-      await processItem(item, source, { offline, totals, recentSignatures });
+    for (const item of getNewItemsForSource(source.id, config.ingest.maxItemsPerSource)) {
+      queue.push({ item, source });
     }
+  }
+  queue.sort((a, b) => itemTime(b.item) - itemTime(a.item));
+  const budget = { used: 0, total: isLive() ? config.ingest.llmCallBudget : Infinity };
+
+  for (const { item, source } of queue) {
+    await processItem(item, source, { offline, totals, recentSignatures, budget });
+  }
+  if (totals.deferred > 0) {
+    log(`LLM budget (${budget.total}) reached; ${totals.deferred} items deferred to the next run`);
   }
 
   if (!skipGenerate) {
@@ -92,8 +110,9 @@ export async function runIngestCycle({ offline = false, skipGenerate = false } =
   return totals;
 }
 
-async function processItem(item, source, { offline, totals, recentSignatures }) {
-  // Step 2: scope / junk filter
+async function processItem(item, source, { offline, totals, recentSignatures, budget }) {
+  // Step 2: scope / junk filter — free, so it runs even when the LLM budget
+  // is spent (junk gets marked instead of clogging the queue next run).
   const drop = shouldDrop({ title: item.title, link: item.link });
   if (drop.drop) {
     markFiltered(item.id, drop.reason);
@@ -105,6 +124,15 @@ async function processItem(item, source, { offline, totals, recentSignatures }) 
   if (isTooOld(item.pubDate, config.freshness.maxAgeHours)) {
     markFiltered(item.id, 'too-old');
     totals.tooOld++;
+    return;
+  }
+
+  // Step 2c: LLM budget gate — an item needs ~2 calls (facts + summary); if
+  // this run can't afford them, leave it 'new' for the next run rather than
+  // half-processing it. Placed before extraction so we don't fetch article
+  // HTML we can't use.
+  if (budget.used + 2 > budget.total) {
+    totals.deferred++;
     return;
   }
 
@@ -123,6 +151,7 @@ async function processItem(item, source, { offline, totals, recentSignatures }) 
   // Step 4: extract facts (+ is-current-news, world-importance, and
   // article-category-classification gates)
   let facts, worldScore, isCurrentNews, category, passesGate;
+  budget.used++; // facts call attempt
   try {
     ({ facts, worldScore, isCurrentNews, category, passesGate } = await extractFactsForItem({
       title: item.title,
@@ -159,6 +188,8 @@ async function processItem(item, source, { offline, totals, recentSignatures }) 
   }
 
   // Step 5: write summary + publish
+  budget.used++; // summary call attempt (the rare verify-retry inside is
+  // absorbed by the slack between budget total and the actual daily cap)
   try {
     const summary = await writeSummaryForItem({ facts, sourceName: source.name, category });
     insertArticle({
@@ -189,6 +220,12 @@ async function processItem(item, source, { offline, totals, recentSignatures }) 
     markStatus(item.id, 'error', `summary: ${err.message}`);
     totals.extractErrors++;
   }
+}
+
+/** Item recency for queue ordering: source pubDate, falling back to fetch time. */
+function itemTime(item) {
+  const t = Date.parse(item.pubDate ?? item.fetchedAt ?? '');
+  return Number.isFinite(t) ? t : 0;
 }
 
 /** Parse a stored dedupe signature JSON string; null if absent/corrupt. */

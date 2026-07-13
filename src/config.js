@@ -80,6 +80,15 @@ export const config = {
   },
   ingest: {
     maxItemsPerSource: num(process.env.MAX_ITEMS_PER_SOURCE, 15),
+    // Max LLM calls per ingest run (~2 per article: facts + summary). This
+    // rations the Gemini free tier's HARD DAILY cap (500 requests/day for
+    // flash-lite) across the whole day: without it, the morning's news volume
+    // exhausts the quota by midday and every evening run publishes nothing
+    // (observed live: 161 articles by 11:30 UTC, then a wall of daily-quota
+    // 429s). 18 × ~24-29 runs/day ≈ 430-520 attempts — items over budget stay
+    // 'new' and roll to the next run, newest first, until the freshness
+    // window ages them out.
+    llmCallBudget: num(process.env.LLM_CALLS_PER_RUN, 18),
     fetchTimeoutMs: num(process.env.FETCH_TIMEOUT_MS, 15000),
     // Sent as User-Agent on outbound requests; be a polite citizen.
     userAgent:

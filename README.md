@@ -130,17 +130,27 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
 If the selected mode's key is missing, the app falls back to `stub` rather
 than crashing. Switching modes is a `.env` change only — no code changes.
 
-With 12 active sources, a single ingest cycle can fire well over 100 Gemini
-calls (2 per surviving item) in quick succession — easy to hit the free
-tier's per-minute cap. Transient `429`s get a few exponential-backoff
-retries automatically; if you still see rate-limit errors in the run
-summary, lower `MAX_ITEMS_PER_SOURCE` in `.env`.
+**Gemini free-tier quota — two different limits apply:**
+
+- **Per-minute:** transient `429`s get a few exponential-backoff retries
+  automatically, and items that still fail are re-queued for the next run.
+- **Per-day (the binding one):** flash-lite allows **500 requests/day**, and
+  12 sources produce more than that (~200+ eligible items/day × 2 calls).
+  Left unmanaged, the morning's volume exhausts the whole day's quota by
+  midday and every evening run publishes nothing (observed live). So each
+  run stops after `LLM_CALLS_PER_RUN` calls (default 18 ≈ 8-9 articles):
+  18 × ~24-29 runs/day ≈ 430-520 attempts, spreading the quota across the
+  whole day. Over-budget items stay `new` and roll to the next run — newest
+  news first, across all sources — until the freshness window ages them out.
+  During peak news hours some low-priority items will age out unprocessed;
+  that's the trade a hard 500/day ceiling forces.
 
 ## Configuration
 
 All config is via `.env` (see [`.env.example`](./.env.example) for every option
 and its default): LLM mode/model/key, world-importance threshold, freshness
-(`FETCH_MAX_AGE_HOURS`, default 3h) and retention (`ARTICLE_RETENTION_DAYS`,
+(`FETCH_MAX_AGE_HOURS`, default 3h), per-run LLM budget (`LLM_CALLS_PER_RUN`,
+default 18 — see the quota note below) and retention (`ARTICLE_RETENTION_DAYS`,
 default 7 days), duplicate detection (`DEDUPE_WINDOW_HOURS`,
 `DEDUPE_SIMILARITY_THRESHOLD`), ingest interval (`INGEST_INTERVAL_MIN`, default
 60 → hourly at `:00`), DB path, preview port, per-source item caps, fetch
