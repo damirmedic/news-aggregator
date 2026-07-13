@@ -1,12 +1,19 @@
 name: Ingest and deploy
 
 # Replaces the app's own internal cron scheduler (src/scheduler.js / npm start)
-# for this deployment: GitHub's own scheduler fires this job on the hour,
-# independent of any server staying awake, which is what makes hourly
-# ingestion reliable on free hosting. See README's "Deployment" section.
+# for this deployment. See README's "Deployment" section.
+#
+# TRIGGERING: GitHub's built-in `schedule` is best-effort — it routinely delays
+# and silently drops runs under load, so it CANNOT be relied on for regular
+# ingestion (observed running only a few times a day instead of hourly). The
+# reliable driver is `repository_dispatch`, fired by an external cron service
+# (e.g. cron-job.org) that POSTs to the GitHub API on an exact schedule. The
+# `schedule` line is kept only as a no-cost backup for when GitHub does fire it.
 on:
+  repository_dispatch:
+    types: [ingest-now] # external cron -> POST /repos/:owner/:repo/dispatches
   schedule:
-    - cron: '0 * * * *' # every hour, on the hour (UTC)
+    - cron: '0 * * * *' # best-effort backup only; not the primary trigger
   workflow_dispatch: {} # manual "Run workflow" button, for testing
 
 permissions:

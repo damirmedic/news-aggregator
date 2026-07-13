@@ -198,8 +198,7 @@ generally can't run this app correctly: their instances sleep when idle
 (breaking a reliable hourly cron) and don't include persistent disk (breaking
 SQLite between deploys).
 
-`.github/workflows/ingest-deploy.yml` runs hourly (GitHub's own scheduler,
-independent of any server staying awake — see the workflow file for why):
+`.github/workflows/ingest-deploy.yml`, on each trigger:
 
 1. Restores `data/news.db` from a dedicated `data` branch (the DB isn't
    tracked on the code branch — see `.gitignore`).
@@ -209,6 +208,32 @@ independent of any server staying awake — see the workflow file for why):
 4. Force-pushes a fresh single-commit snapshot of `data/news.db` back to the
    `data` branch (snapshot-only, no history — the app's own
    `ARTICLE_RETENTION_DAYS` already bounds what matters).
+
+### Triggering (why not GitHub's own schedule)
+
+GitHub's built-in `schedule:` event is **best-effort** — it routinely delays
+and silently drops runs under load (observed firing only a few times a day
+instead of hourly), which is fatal for an aggregator whose whole job is regular
+ingestion. So the reliable driver is an **external cron service** hitting the
+GitHub API on an exact schedule via the workflow's `repository_dispatch`
+trigger; the `schedule:` line is kept only as a no-cost backup.
+
+Set it up with any free cron service that can send an authenticated POST
+([cron-job.org](https://cron-job.org) works well):
+
+- **URL:** `https://api.github.com/repos/<owner>/news-aggregator/dispatches`
+- **Method:** `POST`
+- **Headers:**
+  - `Accept: application/vnd.github+json`
+  - `Authorization: Bearer <PAT>`
+  - `X-GitHub-Api-Version: 2022-11-28`
+- **Body:** `{"event_type":"ingest-now"}`
+- **Schedule:** every hour (or every 30 min — see the minutes note below)
+
+The `<PAT>` is a **fine-grained** Personal Access Token
+(github.com/settings/tokens) scoped to **only this repository** with
+**Contents: write** permission (the minimum `repository_dispatch` needs). Store
+it in the cron service, never in the repo.
 
 ### One-time setup
 
@@ -223,12 +248,17 @@ independent of any server staying awake — see the workflow file for why):
    first run creates the Cloudflare Pages project automatically. Trigger it
    immediately via the Actions tab → "Ingest and deploy" → "Run workflow",
    rather than waiting for the next hour.
-4. The live site is served at `https://no-clickbait-news-aggregator.pages.dev`
+4. Set up the external cron trigger (see "Triggering" above).
+5. The live site is served at `https://no-clickbait-news-aggregator.pages.dev`
    (shown in the Cloudflare dashboard and in each run's deploy log).
 
-Note: GitHub Actions gives private repos 2,000 free minutes/month — an hourly
-run for a week or two fits comfortably; running it hourly indefinitely for a
-full month is close to the cap.
+Note on Actions minutes: **private** repos get 2,000 free minutes/month. At
+~4–5 min per run, reliable hourly (~24 runs/day) is ~2,900–3,600 min/month —
+over the cap, so it would pause partway through a month. Options: run every 2h
+(comfortably under), or make the repo **public** (public repos get *unlimited*
+Actions minutes, so hourly/30-min runs are free indefinitely). The content is
+credited public news either way; the trade-off is only whether the code and
+generated pages are visible.
 
 ## File layout
 
