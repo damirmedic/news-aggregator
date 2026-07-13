@@ -19,7 +19,9 @@ export const sources = [
   // --- Croatian (HR) ---
   { name: 'Index.hr',            rssUrl: 'https://www.index.hr/rss/vijesti',              track: 'hr', active: true },
   { name: 'Index.hr Sport',      rssUrl: 'https://www.index.hr/rss/sport',                track: 'hr', active: true },
-  { name: '24sata',              rssUrl: 'https://www.24sata.hr/feeds/news.xml',          track: 'hr', active: true },
+  // 24sata: deactivated 2026-07-13 — feed quality too low to be worth LLM
+  // budget (kept as a row so its existing raw_items/articles stay intact).
+  { name: '24sata',              rssUrl: 'https://www.24sata.hr/feeds/news.xml',          track: 'hr', active: false },
   { name: 'Jutarnji list',       rssUrl: 'https://www.jutarnji.hr/feed',                  track: 'hr', active: true },
   { name: 'Večernji list',       rssUrl: 'https://www.vecernji.hr/feeds/latest',          track: 'hr', active: true },
   { name: 'N1',                  rssUrl: 'https://n1info.hr/feed/',                       track: 'hr', active: true },

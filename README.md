@@ -158,12 +158,13 @@ timeout.
 
 ## Sources & categories
 
-`src/sources.js` seeds 12 active feeds: 11 Croatian portals (Index.hr,
-Index.hr Sport, 24sata, Jutarnji list, Večernji list, N1, Dnevnik.hr, Novi
-list, Slobodna Dalmacija, Tportal, Net.hr — each `rssUrl` verified live) plus
-Al Jazeera as the world wire. HRT, Euractiv, and Politico Europe are seeded
-`active: false` — no working RSS URL found for HRT as of this writing; the
-other two need a license-terms check before enabling.
+`src/sources.js` seeds 11 active feeds: 10 Croatian portals (Index.hr,
+Index.hr Sport, Jutarnji list, Večernji list, N1, Dnevnik.hr, Novi list,
+Slobodna Dalmacija, Tportal, Net.hr — each `rssUrl` verified live) plus
+Al Jazeera as the world wire. Seeded `active: false`: 24sata (deactivated
+2026-07-13, feed quality too low to be worth LLM budget), HRT (no working
+RSS URL found as of this writing), and Euractiv + Politico Europe (need a
+license-terms check before enabling).
 
 Each source has a `track` (`hr` | `world`) — the *selection* axis: Croatian
 portals publish everything that passes the junk filter, world-track items
