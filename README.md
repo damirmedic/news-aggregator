@@ -42,8 +42,10 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
 2. **Filter** out-of-scope junk (horoscopes, galleries, video-only, sponsored,
    sports live-tickers, …) by pattern, then drop anything older than
    `FETCH_MAX_AGE_HOURS` by the source's own pubDate; dropped items keep a
-   `filter_reason`. The default (1h) pairs with the hourly schedule: each run
-   only pays for the full-text + LLM steps on the last hour's fresh items.
+   `filter_reason`. The default (3h) keeps each run cheap (only recent items
+   reach the full-text + LLM steps) while absorbing the deployed cron's
+   real-world unreliability — GitHub scheduled runs get delayed/skipped, so a
+   tighter window would turn every missed hour into a permanent coverage gap.
 3. **Extract full text** of each surviving article (readability), plus its
    real publish timestamp and featured-image URL from the page's own
    metadata (hotlinked with credit — see the CLAUDE.md caveat).
@@ -138,7 +140,7 @@ summary, lower `MAX_ITEMS_PER_SOURCE` in `.env`.
 
 All config is via `.env` (see [`.env.example`](./.env.example) for every option
 and its default): LLM mode/model/key, world-importance threshold, freshness
-(`FETCH_MAX_AGE_HOURS`, default 1h) and retention (`ARTICLE_RETENTION_DAYS`,
+(`FETCH_MAX_AGE_HOURS`, default 3h) and retention (`ARTICLE_RETENTION_DAYS`,
 default 7 days), duplicate detection (`DEDUPE_WINDOW_HOURS`,
 `DEDUPE_SIMILARITY_THRESHOLD`), ingest interval (`INGEST_INTERVAL_MIN`, default
 60 → hourly at `:00`), DB path, preview port, per-source item caps, fetch

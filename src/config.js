@@ -42,11 +42,13 @@ export const config = {
   },
   freshness: {
     // Feed items older than this (by the source's own pubDate) are filtered
-    // before the expensive full-text + LLM steps. Default 1h matches the
-    // hourly schedule: each run only processes the last hour's fresh items.
-    // (URL-dedupe already guarantees nothing is processed twice, so a slightly
-    // larger window would just add resilience against a missed run, not cost.)
-    maxAgeHours: num(process.env.FETCH_MAX_AGE_HOURS, 1),
+    // before the expensive full-text + LLM steps. Default 3h: the deployed
+    // GitHub Actions "hourly" cron is best-effort and in practice skips/delays
+    // runs (observed running every 2-4h overnight), so a 1h window turned every
+    // skipped hour into a permanent coverage gap. 3h lets a delayed/missed run
+    // still pick up what it dropped. URL-dedupe guarantees nothing is processed
+    // twice, so the only cost of a wider window is "freshest ~3h" vs "1h".
+    maxAgeHours: num(process.env.FETCH_MAX_AGE_HOURS, 3),
     // How long a published article stays on the live site (front page +
     // detail page). The DB row itself is kept indefinitely (cheap, useful
     // for future search/history features) — this only bounds what
