@@ -98,6 +98,9 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
    - every figure in the written summary must appear in the facts, **and**
      the word immediately following it must too — which is what catches
      "450 glazbenika" being re-attached as "450 minuta";
+   - numeric qualifiers must survive intact: facts saying "više od 2700"
+     can't become a flat "2700" in the summary (or gain a qualifier the
+     facts never had);
    - a failing summary gets one corrective rewrite with the verifier's
      findings fed back, then the item is dropped, never published.
    Alongside: extraction runs at temperature 0 / summary at 0.2, `numbers[]`

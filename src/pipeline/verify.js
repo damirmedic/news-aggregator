@@ -141,6 +141,51 @@ export function findUnitMismatches(summaryText, factsStr) {
   return problems;
 }
 
+// Croatian numeric qualifiers (normalized forms). "više od 2700" and "2700"
+// are different claims — dropping, adding, or swapping one is a fabrication
+// even though the figure itself checks out.
+const QUALIFIER_RE =
+  /(?:\b(vise od|manje od|preko|gotovo|oko|najmanje|najvise|priblizno|skoro|barem)\s+)?(\d[\d.,:]*)/g;
+
+/** All numeric occurrences of `text` as { token, qualifier|null } pairs. */
+function qualifiedOccurrences(text) {
+  const out = [];
+  for (const m of normalize(text).matchAll(QUALIFIER_RE)) {
+    const [, qualifier, num] = m;
+    const raw = num.replace(/[.,]+$/, '');
+    if (isDateLike(raw)) continue;
+    const token = raw.replace(/(\d)[.,](?=\d)/g, '$1');
+    if (token.length < 2) continue;
+    out.push({ token, qualifier: qualifier || null });
+  }
+  return out;
+}
+
+/**
+ * Figures whose qualifier differs between summary and facts — e.g. facts say
+ * "više od 2700" but the summary states a flat "2700" (or vice versa). A
+ * summary occurrence passes if ANY facts occurrence of the same figure
+ * carries the same qualifier (including none).
+ */
+export function findQualifierMismatches(summaryText, factsStr) {
+  const factsQualifiers = new Map();
+  for (const { token, qualifier } of qualifiedOccurrences(factsStr)) {
+    if (!factsQualifiers.has(token)) factsQualifiers.set(token, new Set());
+    factsQualifiers.get(token).add(qualifier);
+  }
+  const problems = [];
+  for (const { token, qualifier } of qualifiedOccurrences(summaryText)) {
+    const allowed = factsQualifiers.get(token);
+    if (!allowed) continue; // absent figure — the presence check owns that
+    if (!allowed.has(qualifier)) {
+      const said = qualifier ? `"${qualifier} ${token}"` : `a flat "${token}"`;
+      const expected = [...allowed].map((q) => (q ? `"${q} ${token}"` : `a flat "${token}"`)).join(' or ');
+      problems.push(`summary says ${said} but the facts say ${expected}`);
+    }
+  }
+  return problems;
+}
+
 /**
  * Verify a written summary against the facts it was generated from.
  * @returns {string[]} human-readable problems; empty = clean.
@@ -156,6 +201,7 @@ export function verifySummary({ headline, subheadline, body }, facts) {
   for (const pair of findUnitMismatches(summaryText, factsStr)) {
     problems.push(`figure attached to a unit/referent the facts never mention: "${pair}"`);
   }
+  problems.push(...findQualifierMismatches(summaryText, factsStr));
   return problems;
 }
 

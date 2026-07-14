@@ -162,6 +162,49 @@ test('findUnsupportedNumbers ignores single digits (spelled-out numbers in prose
   assert.deepEqual(findUnsupportedNumbers('dolaze 2 osobe', 'dolaze dvije osobe'), []);
 });
 
+test('flags a dropped numeric qualifier ("više od 2700" -> flat "2700")', () => {
+  const facts = {
+    what: 'Istraživanje povezuje više od 2700 smrtnih slučajeva s toplinskim valom',
+    numbers: ['više od 2700 smrtnih slučajeva'],
+    quotes: [],
+  };
+  const problems = verifySummary(
+    {
+      headline: 'Toplinski val uzrokovao smrtne slučajeve',
+      subheadline: 'U Europi je zabilježeno 2700 smrtnih slučajeva.',
+      body: 'Istraživanje povezuje 2700 smrtnih slučajeva s toplinskim valom.',
+    },
+    facts
+  );
+  assert.ok(problems.some((p) => p.includes('2700')), `expected qualifier mismatch, got: ${problems.join(' | ')}`);
+});
+
+test('accepts the qualifier preserved exactly (with Croatian formatting)', () => {
+  const facts = {
+    what: 'Istraživanje povezuje više od 2700 smrtnih slučajeva s toplinskim valom',
+    numbers: ['više od 2700 smrtnih slučajeva'],
+    quotes: [],
+  };
+  const problems = verifySummary(
+    {
+      headline: 'Toplinski val povezan s više od 2.700 smrtnih slučajeva',
+      subheadline: null,
+      body: 'Istraživanje povezuje više od 2.700 smrtnih slučajeva s toplinskim valom.',
+    },
+    facts
+  );
+  assert.deepEqual(problems, []);
+});
+
+test('flags an invented qualifier (facts flat "450" -> summary "više od 450")', () => {
+  const facts = { what: 'U projektu sudjeluje 450 glazbenika', numbers: ['450 glazbenika'], quotes: [] };
+  const problems = verifySummary(
+    { headline: 'Projekt okuplja glazbenike', subheadline: null, body: 'Sudjeluje više od 450 glazbenika.' },
+    facts
+  );
+  assert.ok(problems.some((p) => p.includes('450')));
+});
+
 test('numeric dd.mm. dates are exempt from adjacency, thousands separators are not', () => {
   // Live false positive: "12.7." (a date) followed by an ordinary verb.
   const facts = { what: 'Snimka je objavljena', when: '12.7.2026.', numbers: [], quotes: [] };
