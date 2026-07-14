@@ -76,6 +76,10 @@ export function factsText(facts, { includeWhen = true } = {}) {
     facts.where,
     facts.why,
     ...(Array.isArray(facts.numbers) ? facts.numbers : []),
+    // Contextual mentions are facts too: a summary may cite figures from them
+    // (so they must count as support), and an invented figure inside one must
+    // still fail the facts-vs-source check.
+    ...(Array.isArray(facts.background) ? facts.background : []),
     ...(Array.isArray(facts.quotes) ? facts.quotes : []).flatMap((q) => [q?.text, q?.speaker]),
   ];
   return parts.filter(Boolean).join('\n');

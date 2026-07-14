@@ -37,6 +37,7 @@ export function extractFactsStub({ title, bodyText, track }) {
     where: null,
     why: null,
     numbers: [],
+    background: [],
     quotes: [],
     world_importance: worldImportance,
     is_current_news: true,

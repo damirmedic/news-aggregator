@@ -68,7 +68,13 @@ itself.
 4. **Extract facts (LLM call 1):** Prompt Claude to pull structured facts
    from the article body only — who, what, when, where, why, key numbers,
    direct quotes worth attributing. Output JSON. This step deliberately
-   throws away the original sentence structure/wording.
+   throws away the original sentence structure/wording. (**Amended
+   2026-07-14:** `who` entries carry each actor's stated role, and a separate
+   `background` field holds purely contextual mentions with their stated
+   context — bare names/figures in the facts JSON invite the writer, which
+   never sees the article, to invent the missing relationship. Both observed
+   live: "450 musicians" → "450-minute album"; Pelé/Maradona on the all-time
+   scorers list → "tournament participants".)
 5. **Write summary (LLM call 2):** From the structured facts (not the
    original text), generate:
    - Headline (plain, factual, ≤ ~12 words)

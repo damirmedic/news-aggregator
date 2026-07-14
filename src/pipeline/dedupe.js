@@ -133,6 +133,10 @@ function numberTokens(facts) {
  * Build a duplicate-detection signature from an article's extracted facts.
  * Serializable (plain arrays + a string) so it can be stored on the article row
  * and compared symmetrically against future candidates.
+ *
+ * Deliberately EXCLUDES facts.background: contextual name-drops (historical
+ * figures, all-time records) recur across many unrelated articles on the same
+ * topic and would manufacture false duplicate matches.
  * @returns {{ e: string[], n: string[], w: string }}
  */
 export function buildSignature(facts) {

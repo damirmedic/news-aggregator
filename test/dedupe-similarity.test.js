@@ -79,6 +79,20 @@ test('unrelated sport stories are NOT duplicates', () => {
   assert.equal(findDuplicate(a, [{ headline: 'x', sig: b }], THRESHOLD), null);
 });
 
+test('background mentions do not affect the duplicate signature', () => {
+  const base = {
+    who: ['Lionel Messi — vodeći strijelac'],
+    what: 'Messi predvodi listu strijelaca Svjetskog prvenstva',
+    numbers: [],
+    quotes: [],
+  };
+  const withBackground = {
+    ...base,
+    background: ['Pelé i Diego Maradona spominju se na vječnoj listi najboljih strijelaca'],
+  };
+  assert.deepEqual(buildSignature(base), buildSignature(withBackground));
+});
+
 test('findDuplicate returns the most similar match, and null for an empty signature', () => {
   const target = buildSignature(CLUSTERS.korculaFire[1]);
   const recent = [

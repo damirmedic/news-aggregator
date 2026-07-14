@@ -107,6 +107,16 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
    entries must be self-describing ("450 glazbenika u projektu", never a bare
    "450"), and the body word-count *minimum* was removed — padding pressure
    on thin fact-lists is itself a hallucination driver.
+
+   The same self-describing principle applies to entities: `who[]` entries
+   carry the person's stated role ("Kylian Mbappé — vodeći strijelac"), and
+   purely contextual mentions (historical figures, all-time records) go in a
+   separate `background[]` field with their stated context — an observed
+   failure had Pelé/Maradona, mentioned only on the all-time scorers list,
+   re-attached by the writer as tournament "participants". Role/relationship
+   fidelity is prompt-enforced (no deterministic check exists for it);
+   `background` is excluded from the dedupe signature so recurring
+   contextual name-drops can't manufacture false duplicate matches.
 6. **Publish**: insert into `articles` with the source's real publish date,
    then regenerate the whole static site — `public/index.html` (the sectioned
    front page), one `public/category/<cat>.html` per category, and one

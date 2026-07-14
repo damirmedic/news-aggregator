@@ -119,6 +119,39 @@ test('date/time words after numbers are whitelisted (months, sati, godine)', () 
   assert.deepEqual(problems, []);
 });
 
+test('figures cited from background mentions count as supported', () => {
+  const facts = {
+    who: ['Lionel Messi — vodeći strijelac prvenstva'],
+    what: 'Lionel Messi predvodi listu strijelaca Svjetskog prvenstva',
+    numbers: [],
+    background: ['Pelé je postigao 12 pogodaka na svjetskim prvenstvima'],
+    quotes: [],
+  };
+  const problems = verifySummary(
+    {
+      headline: 'Messi predvodi listu strijelaca',
+      subheadline: null,
+      body: 'Messi predvodi listu strijelaca. Pelé je postigao 12 pogodaka na svjetskim prvenstvima.',
+    },
+    facts
+  );
+  assert.deepEqual(problems, []);
+});
+
+test('an invented figure inside background still fails the facts-vs-source check', () => {
+  const source = 'Messi predvodi listu strijelaca. Spominju se i Pelé te Maradona.';
+  const { problems } = verifyFacts(
+    {
+      what: 'Messi predvodi listu strijelaca',
+      numbers: [],
+      background: ['Pelé je postigao 77 pogodaka za reprezentaciju'],
+      quotes: [],
+    },
+    source
+  );
+  assert.ok(problems.some((p) => p.includes('77')), `expected 77 flagged, got: ${problems.join(' | ')}`);
+});
+
 // --- facts vs source ---------------------------------------------------------
 
 test('verifyFacts drops unsupported entries from numbers[] but keeps supported ones', () => {
