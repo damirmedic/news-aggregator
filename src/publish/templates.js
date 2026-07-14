@@ -130,11 +130,18 @@ function masthead({ generatedAt, active = 'all', depth = 0 }) {
     { key: 'all', label: 'Sve', href: homeHref },
     ...CATEGORIES.map((key) => ({ key, label: CATEGORY_LABEL[key], href: `${prefix}category/${key}.html` })),
   ];
-  const nav = `<nav class="filters" aria-label="Kategorije">
+  // The category bar is rendered as a SIBLING of <header>, not a child — a
+  // position:sticky element only stays pinned while its containing block is on
+  // screen, so nesting it in the (short, scroll-away) header would unstick it
+  // almost immediately. As a top-level block its containing block is the whole
+  // page, so it stays pinned to the top as you scroll.
+  const categoryBar = `<nav class="category-bar" aria-label="Kategorije">
+    <div class="category-bar-inner">
       ${navItems
         .map((it) => `<a href="${esc(it.href)}"${active === it.key ? ' class="active" aria-current="page"' : ''}>${esc(it.label)}</a>`)
         .join('\n      ')}
-    </nav>`;
+    </div>
+  </nav>`;
 
   return `<header class="site-header">
     <div class="masthead">
@@ -142,8 +149,8 @@ function masthead({ generatedAt, active = 'all', depth = 0 }) {
       ${dateline}
     </div>
     <p class="tagline">Kratki, činjenični sažeci. Uvijek s poveznicom na izvor.</p>
-    ${nav}
-  </header>`;
+  </header>
+  ${categoryBar}`;
 }
 
 function categoryChip(category) {

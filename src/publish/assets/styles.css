@@ -59,8 +59,6 @@ main,
 /* ---------- Masthead ---------- */
 .site-header {
   padding-top: 1.6rem;
-  border-bottom: 3px double var(--rule);
-  margin-bottom: 1.6rem;
 }
 
 .masthead {
@@ -96,9 +94,37 @@ main,
   font-size: 0.95rem;
 }
 
-/* Category navigation — plain links styled as pills (no JS filtering). */
-.filters { display: flex; gap: 0.4rem; flex-wrap: wrap; padding-bottom: 0.9rem; }
-.filters a {
+/* ---------- Category navigation (sticky) ----------
+ * Plain links styled as pills (no JS filtering). The bar is a full-width,
+ * position:sticky sibling of the header so it pins to the top of the viewport
+ * on scroll — on every page, mobile and desktop. Full-bleed background masks
+ * content scrolling underneath; an inner wrapper holds the pills to the shell
+ * width. */
+.category-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  border-bottom: 3px double var(--rule);
+  margin-bottom: 1.6rem;
+}
+.category-bar-inner {
+  max-width: var(--shell);
+  margin: 0 auto;
+  padding: 0.55rem 1.1rem;
+  display: flex;
+  gap: 0.4rem;
+  /* One row, always. Wide enough to fit on desktop and typical phones; on a
+   * very narrow screen it scrolls horizontally rather than wrapping. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+}
+.category-bar-inner::-webkit-scrollbar { display: none; } /* WebKit */
+.category-bar a {
+  flex: 0 0 auto;
+  white-space: nowrap;
   font-size: 0.85rem;
   padding: 0.3rem 0.85rem;
   border: 1px solid var(--line);
@@ -107,8 +133,14 @@ main,
   border-radius: 999px;
   text-decoration: none;
 }
-.filters a:hover { border-color: var(--muted); text-decoration: none; }
-.filters a.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+.category-bar a:hover { border-color: var(--muted); text-decoration: none; }
+.category-bar a.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+/* Mobile: tighten pill sizing so all five categories fit in a single row. */
+@media (max-width: 560px) {
+  .category-bar-inner { gap: 0.3rem; padding: 0.5rem 0.7rem; }
+  .category-bar a { font-size: 0.8rem; padding: 0.28rem 0.62rem; }
+}
 
 /* ---------- Shared story bits ---------- */
 .meta {
