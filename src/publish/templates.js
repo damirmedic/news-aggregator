@@ -144,7 +144,7 @@ function masthead({ generatedAt, active = 'all', depth = 0 }) {
     : '';
 
   const navItems = [
-    { key: 'all', label: 'Sve', href: homeHref },
+    { key: 'all', label: 'Najnovije', href: homeHref },
     ...CATEGORIES.map((key) => ({ key, label: CATEGORY_LABEL[key], href: `${prefix}category/${key}.html` })),
   ];
   // The category bar is rendered as a SIBLING of <header>, not a child — a
