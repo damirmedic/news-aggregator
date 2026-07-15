@@ -46,9 +46,11 @@ function ensureColumn(database, table, column, definition) {
 }
 
 /**
- * Upsert sources by rss_url. Updates name/track/active to match the seed so
- * `src/sources.js` stays the single source of truth. Does not delete rows for
- * sources removed from the seed (keeps their raw_items intact).
+ * Sync the sources table to the seed so `src/sources.js` is the single source
+ * of truth. Upserts each seed row by rss_url, and deactivates any source no
+ * longer in the seed — deleting a source from the file should stop it being
+ * polled. Rows are never removed (their raw_items/articles stay intact); a
+ * dropped source is just set active = 0.
  */
 function seedSources(database) {
   const upsert = database.prepare(`
@@ -59,6 +61,11 @@ function seedSources(database) {
       track  = excluded.track,
       active = excluded.active
   `);
+  const urls = sourceSeed.map((s) => s.rssUrl);
+  const placeholders = urls.map(() => '?').join(', ');
+  const deactivateRemoved = database.prepare(
+    `UPDATE sources SET active = 0 WHERE rss_url NOT IN (${placeholders})`
+  );
   const seedAll = database.transaction((rows) => {
     for (const s of rows) {
       upsert.run({
@@ -68,6 +75,7 @@ function seedSources(database) {
         active: s.active ? 1 : 0,
       });
     }
+    if (urls.length) deactivateRemoved.run(...urls);
   });
   seedAll(sourceSeed);
 }

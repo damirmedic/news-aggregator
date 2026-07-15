@@ -19,9 +19,6 @@ export const sources = [
   // --- Croatian (HR) ---
   { name: 'Index.hr',            rssUrl: 'https://www.index.hr/rss/vijesti',              track: 'hr', active: true },
   { name: 'Index.hr Sport',      rssUrl: 'https://www.index.hr/rss/sport',                track: 'hr', active: true },
-  // 24sata: deactivated 2026-07-13 — feed quality too low to be worth LLM
-  // budget (kept as a row so its existing raw_items/articles stay intact).
-  { name: '24sata',              rssUrl: 'https://www.24sata.hr/feeds/news.xml',          track: 'hr', active: false },
   { name: 'Jutarnji list',       rssUrl: 'https://www.jutarnji.hr/feed',                  track: 'hr', active: true },
   { name: 'Večernji list',       rssUrl: 'https://www.vecernji.hr/feeds/latest',          track: 'hr', active: true },
   { name: 'N1',                  rssUrl: 'https://n1info.hr/feed/',                       track: 'hr', active: true },
@@ -30,16 +27,11 @@ export const sources = [
   { name: 'Slobodna Dalmacija',  rssUrl: 'https://slobodnadalmacija.hr/feed',             track: 'hr', active: true },
   { name: 'Tportal',             rssUrl: 'https://www.tportal.hr/rss-najnovije.xml',      track: 'hr', active: true },
   { name: 'Net.hr',              rssUrl: 'https://net.hr/najnovije/rss.xml',              track: 'hr', active: true },
-  // HRT: no working RSS URL found (homepage advertises none; every guessed
-  // path 404s as of 2026-07-11) — may require a different discovery method
-  // (JSON API?) or may no longer offer RSS. Needs manual research.
-  { name: 'HRT',                 rssUrl: 'https://vijesti.hrt.hr/rss',                    track: 'hr', active: false },
+  // Sportske novosti is now a jutarnji.hr section; this is its dedicated feed
+  // (verified real application/rss+xml, 2026-07-15). Any overlap with the main
+  // Jutarnji feed is absorbed by URL-dedup / cross-portal dedup.
+  { name: 'Sportske novosti',    rssUrl: 'https://www.jutarnji.hr/sportske/feed',         track: 'hr', active: true },
 
-  // --- EU / World ---
-  // Wire-style + EU-policy feeds. Confirm license terms before turning others on.
-  { name: 'Al Jazeera',          rssUrl: 'https://www.aljazeera.com/xml/rss/all.xml',     track: 'world', active: true  },
-  { name: 'Euractiv',            rssUrl: 'https://www.euractiv.com/feed/',                track: 'world', active: false },
-  { name: 'Politico Europe',     rssUrl: 'https://www.politico.eu/feed/',                 track: 'world', active: false },
 ];
 
 export default sources;
