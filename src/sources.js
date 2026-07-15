@@ -32,6 +32,20 @@ export const sources = [
   // Jutarnji feed is absorbed by URL-dedup / cross-portal dedup.
   { name: 'Sportske novosti',    rssUrl: 'https://www.jutarnji.hr/sportske/feed',         track: 'hr', active: true },
 
+  // --- EU / World, via the Croatian portals' own "Svijet" sections ---
+  // These carry world/EU news, in Croatian, ALREADY curated by each portal's
+  // editors for relevance to Croatian readers. That editorial curation is the
+  // same job the `world`-track importance gate does for raw foreign wires
+  // (CLAUDE.md: keep out "routine wire coverage"), so these are `hr`-track
+  // (ungated) rather than importance-scored — cheaper on the LLM budget and
+  // consistent with how world stories in the general feeds already flow.
+  // Content classification still files them under the "Svijet" category, and
+  // cross-portal dedup collapses the same event reported by several of them.
+  // (Verified real RSS with items, 2026-07-15.)
+  { name: 'Index.hr Svijet',     rssUrl: 'https://www.index.hr/rss/vijesti-svijet',       track: 'hr', active: true },
+  { name: 'Jutarnji Svijet',     rssUrl: 'https://www.jutarnji.hr/vijesti/svijet/feed',   track: 'hr', active: true },
+  { name: 'N1 Svijet',           rssUrl: 'https://n1info.hr/svijet/feed/',                track: 'hr', active: true },
+
 ];
 
 export default sources;

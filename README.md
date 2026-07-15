@@ -172,16 +172,24 @@ timeout.
 ## Sources & categories
 
 `src/sources.js` is the single source of truth for feeds. It currently seeds
-11 active Croatian portals (Index.hr, Index.hr Sport, Jutarnji list, Večernji
-list, N1, Dnevnik.hr, Novi list, Slobodna Dalmacija, Tportal, Net.hr, and
-Sportske novosti — the last is jutarnji.hr's sports section feed). No `world`
-source is active right now, so the feed is entirely Croatian; re-add a wire
-(e.g. Al Jazeera) to restore world coverage and the 90/10 split.
+14 active feeds, all `track: 'hr'`: 10 general Croatian portals, one sports
+section (Sportske novosti = jutarnji.hr's sports feed), and three **Svijet
+(world) section feeds** (Index.hr, Jutarnji, N1).
+
+World/EU coverage comes from those Svijet sections rather than a foreign wire:
+they're world news in Croatian, already curated by each portal's editors for
+relevance to Croatian readers — which is the same job the `world`-track
+importance gate does for raw wires, so they run `hr`-track (ungated). Content
+classification still files them under the "Svijet" category, and cross-portal
+dedup collapses the same event reported by several of them. Trade-off: with no
+importance gate, the world/domestic ratio is whatever these sections produce
+(watch it against the 90/10 target; switch them to `track: 'world'`, or drop
+some, if world news over-weights).
 
 `migrate()` syncs the DB to this file: a removed source is set `active = 0`
 (its rows/raw_items are kept, it just stops being polled), so deleting a line
-here actually stops that feed. Rows already known to be inactive include HRT
-(no working RSS URL found), Al Jazeera, 24sata, Euractiv, and Politico Europe.
+here actually stops that feed. Rows currently inactive include HRT (no working
+RSS URL found), Al Jazeera, 24sata, Euractiv, and Politico Europe.
 
 Each source has a `track` (`hr` | `world`) — the *selection* axis: Croatian
 portals publish everything that passes the junk filter, world-track items
