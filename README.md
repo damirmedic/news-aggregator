@@ -117,6 +117,15 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
    fidelity is prompt-enforced (no deterministic check exists for it);
    `background` is excluded from the dedupe signature so recurring
    contextual name-drops can't manufacture false duplicate matches.
+
+   The same self-describing principle extends to **time and place**: every
+   date, time, and venue must be bound to the specific event it belongs to —
+   no bare clock times (a time without its day gets read as "today"), no bare
+   venues (home/away and which leg kept intact). Two observed failures drove
+   this: a return leg played *away* rendered as played "na Poljudu" (the
+   already-played first leg's stadium), and final / third-place kickoff times
+   printed with no day. Also prompt-enforced (extraction binds the detail into
+   the fact string; the writer must not detach it).
 5c. **Illustrative image** (`src/pipeline/resolveImage.js`): the source's own
    photo is never used. Instead the summary step also emits a short *English*
    `imageQuery` naming the story's visual theme (never shown to readers), which

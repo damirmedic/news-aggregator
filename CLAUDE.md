@@ -86,7 +86,13 @@ itself.
    context — bare names/figures in the facts JSON invite the writer, which
    never sees the article, to invent the missing relationship. Both observed
    live: "450 musicians" → "450-minute album"; Pelé/Maradona on the all-time
-   scorers list → "tournament participants".)
+   scorers list → "tournament participants".) (**Amended 2026-07-16:** same
+   self-describing principle now extended to time and place — every date, time,
+   and venue must be bound to the specific event it belongs to, no bare clock
+   times (a time without its day reads as "today") and no bare venues (keep
+   home/away + which leg). Both observed live: a return leg the team plays
+   *away* rendered as played "na Poljudu" — the first leg's venue; and final /
+   third-place kickoff times printed with no day.)
 5. **Write summary (LLM call 2):** From the structured facts (not the
    original text), generate:
    - Headline (plain, factual, ≤ ~12 words)
