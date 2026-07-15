@@ -3,10 +3,10 @@
 // only the plain text — never storing full source HTML — in line with the
 // "store no more than a headline + short quote" principle in CLAUDE.md.
 //
-// Featured image: we also pull the article's og:image URL and hotlink it
-// directly from the source (never downloaded/rehosted), shown with a visible
-// "Foto: [Source]" credit. This is a deliberate, tracked exception to the
-// "headline + quote only" principle above — see the caveat in CLAUDE.md.
+// We deliberately do NOT extract the source's own featured image anymore. The
+// site's images come from royalty-free stock / self-hosted placeholders (see
+// pipeline/resolveImage.js), so nothing copyrighted from the source is ever
+// hotlinked or rehosted — see CLAUDE.md's image caveat.
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 import { config } from '../config.js';
@@ -16,30 +16,6 @@ import { config } from '../config.js';
 // default, but they're non-fatal and irrelevant since we never render CSS.
 // An unforwarded VirtualConsole keeps them from flooding the logs.
 const silentConsole = new VirtualConsole();
-
-const IMAGE_META_SELECTORS = [
-  'meta[property="og:image:secure_url"]',
-  'meta[property="og:image"]',
-  'meta[name="twitter:image"]',
-  'meta[name="twitter:image:src"]',
-];
-
-/** First valid absolute http(s) image URL from the page's social-preview meta tags. */
-function extractFeaturedImageUrl(document, baseUrl) {
-  for (const selector of IMAGE_META_SELECTORS) {
-    const content = document.querySelector(selector)?.getAttribute('content');
-    if (!content) continue;
-    try {
-      const resolved = new URL(content, baseUrl);
-      if (resolved.protocol === 'http:' || resolved.protocol === 'https:') {
-        return resolved.href;
-      }
-    } catch {
-      // malformed URL in the source's meta tag; try the next selector
-    }
-  }
-  return null;
-}
 
 async function fetchHtml(url) {
   const controller = new AbortController();
@@ -57,10 +33,10 @@ async function fetchHtml(url) {
 }
 
 /**
- * Extract main body text (+ published-time and featured-image metadata, if
- * present) for an article URL.
+ * Extract main body text (+ published-time metadata, if present) for an
+ * article URL.
  * @param opts.fetchImpl optional override returning HTML (for tests/fixtures)
- * @returns {Promise<{ text: string, wordCount: number, publishedTime: string|null, imageUrl: string|null }>}
+ * @returns {Promise<{ text: string, wordCount: number, publishedTime: string|null }>}
  * @throws if no meaningful body could be extracted (caller marks item 'error')
  */
 export async function extractArticleText(url, { fetchImpl = fetchHtml } = {}) {
@@ -83,6 +59,5 @@ export async function extractArticleText(url, { fetchImpl = fetchHtml } = {}) {
     text,
     wordCount,
     publishedTime: parsed?.publishedTime || null,
-    imageUrl: extractFeaturedImageUrl(document, url),
   };
 }

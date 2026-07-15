@@ -59,9 +59,11 @@ export function insertArticle(article) {
       .prepare(
         `INSERT INTO articles
            (raw_item_id, headline, subheadline, body, source_name, source_url,
-            category, world_score, published_at, image_url, dedupe_sig)
+            category, world_score, published_at, image_url, image_credit,
+            image_credit_url, dedupe_sig)
          VALUES (@rawItemId, @headline, @subheadline, @body, @sourceName, @sourceUrl,
-            @category, @worldScore, @publishedAt, @imageUrl, @dedupeSig)`
+            @category, @worldScore, @publishedAt, @imageUrl, @imageCredit,
+            @imageCreditUrl, @dedupeSig)`
       )
       .run(a);
     db.prepare(`UPDATE raw_items SET status = 'published' WHERE id = ?`).run(a.rawItemId);
@@ -80,7 +82,8 @@ export function getPublishedArticles({ sinceIso, limit = 500 } = {}) {
     .prepare(
       `SELECT id, headline, subheadline, body, source_name AS sourceName,
               source_url AS sourceUrl, category, world_score AS worldScore,
-              published_at AS publishedAt, image_url AS imageUrl
+              published_at AS publishedAt, image_url AS imageUrl,
+              image_credit AS imageCredit, image_credit_url AS imageCreditUrl
        FROM articles
        WHERE published_at >= ?
        ORDER BY published_at DESC

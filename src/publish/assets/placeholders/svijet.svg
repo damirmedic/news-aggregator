@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-label="Svijet">
+  <rect width="1200" height="675" fill="#eef0f6"/>
+  <rect x="24" y="24" width="1152" height="627" fill="none" stroke="#3a4a7a" stroke-opacity="0.22" stroke-width="2"/>
+  <rect x="34" y="34" width="1132" height="607" fill="none" stroke="#3a4a7a" stroke-opacity="0.18" stroke-width="1"/>
+  <g fill="none" stroke="#3a4a7a" stroke-width="5" stroke-opacity="0.85">
+    <circle cx="600" cy="252" r="82"/>
+    <ellipse cx="600" cy="252" rx="34" ry="82"/>
+    <line x1="518" y1="252" x2="682" y2="252"/>
+    <path d="M527 208 Q600 234 673 208"/>
+    <path d="M527 296 Q600 270 673 296"/>
+  </g>
+  <text x="600" y="470" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="88" fill="#3a4a7a" letter-spacing="2">Svijet</text>
+  <text x="600" y="540" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="22" fill="#3a4a7a" fill-opacity="0.6" letter-spacing="7">NORMALNE VIJESTI</text>
+</svg>

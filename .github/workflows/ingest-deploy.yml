@@ -61,6 +61,9 @@ jobs:
         env:
           LLM_MODE: gemini
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional: royalty-free featured images. If the secret is absent,
+          # articles fall back to self-hosted category placeholders.
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: node src/index.js ingest
 
       - name: Deploy to Cloudflare Pages

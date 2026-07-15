@@ -13,10 +13,13 @@ function sanitize(out) {
   const headline = collapse(out.headline);
   const subheadline = collapse(out.subheadline);
   const body = (out.body || '').trim();
+  // Non-content: a short English theme query for picking an illustrative stock
+  // image (see prompts.js). Never rendered as text; only fed to resolveImage.
+  const imageQuery = collapse(out.imageQuery);
   if (!headline || !body) {
     throw new Error('summary missing headline or body');
   }
-  return { headline, subheadline, body };
+  return { headline, subheadline, body, imageQuery };
 }
 
 /**

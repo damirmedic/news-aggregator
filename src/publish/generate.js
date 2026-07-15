@@ -10,6 +10,7 @@ import { frontPage, articlePage, categoryPage, CATEGORIES } from './templates.js
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STYLES_SRC = path.resolve(__dirname, 'assets/styles.css');
+const PLACEHOLDERS_SRC = path.resolve(__dirname, 'assets/placeholders');
 
 /**
  * Render the whole static site.
@@ -34,8 +35,30 @@ export function generateSite() {
   fs.mkdirSync(articleDir, { recursive: true });
   fs.mkdirSync(categoryDir, { recursive: true });
 
-  // Copy the stylesheet so public/ is self-contained.
+  // Copy the stylesheet + self-hosted category placeholder images so public/
+  // is self-contained (placeholders back every article that has no stock photo).
   fs.copyFileSync(STYLES_SRC, path.join(assetsDir, 'styles.css'));
+  fs.cpSync(PLACEHOLDERS_SRC, path.join(assetsDir, 'placeholders'), { recursive: true });
+
+  // Keep the whole site out of search engines. Three overlapping layers, since
+  // no single one is airtight on its own:
+  //   1. robots.txt — asks compliant crawlers not to fetch anything.
+  //   2. _headers (Cloudflare Pages) — sends X-Robots-Tag on every response,
+  //      the strongest signal because it doesn't rely on the crawler parsing
+  //      HTML, and it still reaches a page linked from elsewhere.
+  //   3. <meta name="robots" ...> in every <head> (see templates.js:head).
+  // This is a private, personal-use trial site — it should never appear in
+  // search results (see CLAUDE.md image/legal caveat).
+  fs.writeFileSync(
+    path.join(outDir, 'robots.txt'),
+    'User-agent: *\nDisallow: /\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(outDir, '_headers'),
+    '/*\n  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex\n',
+    'utf8'
+  );
 
   // Detail pages.
   for (const article of articles) {

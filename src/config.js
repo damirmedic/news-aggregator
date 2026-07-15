@@ -78,6 +78,18 @@ export const config = {
   server: {
     port: num(process.env.PORT, 4173),
   },
+  images: {
+    // Free-stock provider for illustrative featured images. We never touch the
+    // source's own copyrighted photo anymore (see CLAUDE.md); instead each
+    // article gets a royalty-free Pexels image matched to its topic, hotlinked
+    // from Pexels' CDN (never rehosted) and credited. Missing key -> every
+    // article falls back to a self-hosted per-category placeholder, so the
+    // pipeline still runs with zero image configuration.
+    pexelsApiKey: (process.env.PEXELS_API_KEY || '').trim(),
+    // Keep the per-article image lookup snappy — on timeout we just use the
+    // placeholder rather than stalling the ingest run.
+    fetchTimeoutMs: num(process.env.IMAGE_FETCH_TIMEOUT_MS, 6000),
+  },
   ingest: {
     maxItemsPerSource: num(process.env.MAX_ITEMS_PER_SOURCE, 15),
     // Max LLM calls per ingest run (~2 per article: facts + summary). This

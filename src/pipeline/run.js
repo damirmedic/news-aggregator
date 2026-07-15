@@ -19,6 +19,7 @@ import { shouldDrop, isTooOld } from './filter.js';
 import { extractArticleText } from './extractText.js';
 import { extractFactsForItem } from './extractFacts.js';
 import { writeSummaryForItem } from './writeSummary.js';
+import { resolveArticleImage } from './resolveImage.js';
 import { buildSignature, findDuplicate } from './dedupe.js';
 import { generateSite } from '../publish/generate.js';
 import { offlineFeedFetch, offlineHtmlFetch } from '../fixtures/index.js';
@@ -137,10 +138,10 @@ async function processItem(item, source, { offline, totals, recentSignatures, bu
   }
 
   // Step 3: full-text extraction
-  let bodyText, publishedTime, imageUrl;
+  let bodyText, publishedTime;
   try {
     const htmlFetch = offline ? offlineHtmlFetch : undefined;
-    ({ text: bodyText, publishedTime, imageUrl } = await extractArticleText(item.link, { fetchImpl: htmlFetch }));
+    ({ text: bodyText, publishedTime } = await extractArticleText(item.link, { fetchImpl: htmlFetch }));
     markStatus(item.id, 'extracted');
   } catch (err) {
     markStatus(item.id, 'error', `extract: ${err.message}`);
@@ -192,6 +193,15 @@ async function processItem(item, source, { offline, totals, recentSignatures, bu
   // absorbed by the slack between budget total and the actual daily cap)
   try {
     const summary = await writeSummaryForItem({ facts, sourceName: source.name, category });
+    // Illustrative featured image: a royalty-free Pexels photo matched to the
+    // story's theme, or a self-hosted per-category placeholder. Never the
+    // source's own photo (see resolveImage.js / CLAUDE.md). Non-fatal — a miss
+    // just yields a placeholder, so it never blocks publishing.
+    const image = await resolveArticleImage({
+      query: summary.imageQuery,
+      category,
+      offline,
+    });
     insertArticle({
       rawItemId: item.id,
       headline: summary.headline,
@@ -206,9 +216,10 @@ async function processItem(item, source, { offline, totals, recentSignatures, bu
       // Index.hr). Page metadata is still a useful fallback for feeds that
       // omit pubDate; "now" is a last resort, not the real publish time.
       publishedAt: resolvePublishedAt(item.pubDate, publishedTime, item.fetchedAt),
-      // Hotlinked from the source, never downloaded/stored — see the image
-      // credit rendered alongside it in publish/templates.js.
-      imageUrl,
+      // Royalty-free/placeholder image + its attribution (see templates.js).
+      imageUrl: image.imageUrl,
+      imageCredit: image.imageCredit,
+      imageCreditUrl: image.imageCreditUrl,
       // Persist the signature so future runs can dedupe against this article.
       dedupeSig: JSON.stringify(signature),
     });

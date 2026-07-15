@@ -25,14 +25,26 @@ itself.
   Always link to and credit the original source. See "Content pipeline"
   below — the two-step extract-then-write process is the actual copyright
   safety mechanism, not just a nice-to-have.
-  **Known exception (added 2026-07-11):** article pages hotlink the source's
-  own featured image (via its `og:image` tag) with a visible "Foto: [Source]"
-  credit. The image is never downloaded or rehosted — only its source URL is
-  embedded — but displaying it is still "more than headline + quote," a real
-  deviation from the rule above. Accepted for now because the site is
-  personal-use only and not public. **Revisit before any public launch:**
-  either drop images, source them independently (self-generated/licensed),
-  or knowingly accept the legal exposure of hotlinking.
+  **Images — resolved 2026-07-15 (superseded the 2026-07-11 exception below).**
+  Article pages no longer touch the source's own photo at all. Each article
+  now gets an *illustrative* image via `src/pipeline/resolveImage.js`:
+    1. a royalty-free **Pexels** photo matched to the story's theme (a short
+       English `imageQuery` the summary step emits), hotlinked from Pexels'
+       own CDN — which their license/API guidelines expressly permit — and
+       credited "Foto: [Photographer] / Pexels"; or
+    2. if there's no key, no match, or a network error, a **self-hosted
+       per-category placeholder** SVG (`src/publish/assets/placeholders/`),
+       captioned "Ilustracija".
+  A generic thematic stock photo is clearly decorative rather than purporting
+  to document the event, which is both the legally-safe and the honest choice.
+  Nothing copyrighted from the source is embedded or rehosted, so the images
+  are legally clean by construction like the text. The whole site is also
+  `noindex`/`robots`-blocked (robots.txt + `X-Robots-Tag` + meta) so it stays
+  out of search engines during the private trial.
+  _Original exception (2026-07-11, now removed): article pages used to hotlink
+  the source's `og:image` with a "Foto: [Source]" credit — never downloaded,
+  but still "more than headline + quote." That is the deviation the above
+  resolves._
 - **90/10 split.** Croatian domestic news dominates the feed. World/EU news
   only surfaces if it clears a "genuinely important" bar (see Selection
   logic) — not routine wire coverage.

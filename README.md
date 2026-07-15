@@ -47,8 +47,8 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
    real-world unreliability — GitHub scheduled runs get delayed/skipped, so a
    tighter window would turn every missed hour into a permanent coverage gap.
 3. **Extract full text** of each surviving article (readability), plus its
-   real publish timestamp and featured-image URL from the page's own
-   metadata (hotlinked with credit — see the CLAUDE.md caveat).
+   real publish timestamp from the page's own metadata. The source's own
+   photo is never used; illustrative images are added later (step 5b).
 4. **Extract facts** (LLM call 1): structured who/what/when/where/why JSON,
    from the body only — deliberately discarding the original wording. Also
    classifies `is_current_news` (drops historical retrospectives, gossip,
@@ -117,6 +117,17 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
    fidelity is prompt-enforced (no deterministic check exists for it);
    `background` is excluded from the dedupe signature so recurring
    contextual name-drops can't manufacture false duplicate matches.
+5c. **Illustrative image** (`src/pipeline/resolveImage.js`): the source's own
+   photo is never used. Instead the summary step also emits a short *English*
+   `imageQuery` naming the story's visual theme (never shown to readers), which
+   is searched against **Pexels** (free stock, permissive license); the best
+   landscape match is hotlinked from Pexels' CDN — never rehosted — and credited
+   "Foto: [Photographer] / Pexels". With no `PEXELS_API_KEY`, no match, or a
+   network error, the article falls back to a self-hosted **per-category
+   placeholder** SVG (`src/publish/assets/placeholders/`, captioned
+   "Ilustracija"). A generic thematic photo is clearly decorative rather than
+   documentary — the legally-safe and honest choice. See the CLAUDE.md image
+   note; tune via `PEXELS_API_KEY` / `IMAGE_FETCH_TIMEOUT_MS`.
 6. **Publish**: insert into `articles` with the source's real publish date,
    then regenerate the whole static site — `public/index.html` (the sectioned
    front page), one `public/category/<cat>.html` per category, and one
@@ -246,7 +257,11 @@ SQLite between deploys).
    tracked on the code branch — see `.gitignore`).
 2. Runs one ingest cycle (`node src/index.js ingest`, `LLM_MODE=gemini`),
    which updates the DB and regenerates `public/`.
-3. Deploys `public/` to Cloudflare Pages.
+3. Deploys `public/` to Cloudflare Pages. The generated site is kept out of
+   search engines during the private trial via three overlapping layers —
+   `public/robots.txt` (disallow all), a `public/_headers` `X-Robots-Tag`
+   (Cloudflare Pages sends it on every response), and a `noindex` meta on every
+   page — since no single one is airtight alone.
 4. Force-pushes a fresh single-commit snapshot of `data/news.db` back to the
    `data` branch (snapshot-only, no history — the app's own
    `ARTICLE_RETENTION_DAYS` already bounds what matters).
@@ -284,6 +299,9 @@ it in the cron service, never in the repo.
    in the Cloudflare dashboard).
 2. **GitHub repo secrets** (Settings → Secrets and variables → Actions):
    - `GEMINI_API_KEY` — same value as local `.env`
+   - `PEXELS_API_KEY` — *optional*; free key from
+     [pexels.com/api](https://www.pexels.com/api/) for royalty-free featured
+     images. Omit it and articles use self-hosted category placeholders instead.
    - `CLOUDFLARE_API_TOKEN`
    - `CLOUDFLARE_ACCOUNT_ID`
 3. Push `.github/workflows/ingest-deploy.yml` (already in the repo). The

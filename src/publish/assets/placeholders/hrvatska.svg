@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-label="Hrvatska">
+  <rect width="1200" height="675" fill="#eef3f1"/>
+  <rect x="24" y="24" width="1152" height="627" fill="none" stroke="#2f5d50" stroke-opacity="0.22" stroke-width="2"/>
+  <rect x="34" y="34" width="1132" height="607" fill="none" stroke="#2f5d50" stroke-opacity="0.18" stroke-width="1"/>
+  <circle cx="600" cy="196" r="34" fill="#2f5d50" fill-opacity="0.85"/>
+  <path d="M372 322 L470 250 L548 302 L638 236 L724 302 L828 254" fill="none" stroke="#2f5d50" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.85"/>
+  <text x="600" y="470" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="88" fill="#2f5d50" letter-spacing="2">Hrvatska</text>
+  <text x="600" y="540" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="22" fill="#2f5d50" fill-opacity="0.6" letter-spacing="7">NORMALNE VIJESTI</text>
+</svg>

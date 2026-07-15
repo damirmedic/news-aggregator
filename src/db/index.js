@@ -32,9 +32,38 @@ export function migrate() {
   // CREATE TABLE IF NOT EXISTS doesn't add columns to an already-existing
   // table, so new nullable columns need an explicit additive migration.
   ensureColumn(database, 'articles', 'image_url', 'TEXT');
+  ensureColumn(database, 'articles', 'image_credit', 'TEXT');
+  ensureColumn(database, 'articles', 'image_credit_url', 'TEXT');
   ensureColumn(database, 'articles', 'dedupe_sig', 'TEXT');
+  neutralizeLegacySourceImages(database);
   seedSources(database);
   return database;
+}
+
+/**
+ * One-time (idempotent) cleanup: earlier versions hotlinked the source's own
+ * og:image. We no longer do that (images are now royalty-free stock or
+ * self-hosted placeholders — see pipeline/resolveImage.js / CLAUDE.md), so any
+ * lingering legacy row still pointing at a source URL is repointed to its
+ * category placeholder. This stops those hotlinks immediately rather than
+ * letting them ride out the 7-day retention window. Rows already on a
+ * placeholder or a Pexels CDN URL are left alone, so this matches nothing after
+ * the first run.
+ */
+function neutralizeLegacySourceImages(database) {
+  database
+    .prepare(
+      `UPDATE articles
+          SET image_url = '/assets/placeholders/' ||
+                CASE WHEN category IN ('hrvatska','zagreb','svijet','sport')
+                     THEN category ELSE 'hrvatska' END || '.svg',
+              image_credit = NULL,
+              image_credit_url = NULL
+        WHERE image_url IS NOT NULL
+          AND image_url NOT LIKE '/assets/placeholders/%'
+          AND image_url NOT LIKE '%pexels.com%'`
+    )
+    .run();
 }
 
 /** Add `column` to `table` if it doesn't already exist. Additive only. */

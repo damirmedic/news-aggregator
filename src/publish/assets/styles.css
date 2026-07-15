@@ -91,6 +91,16 @@ main,
   white-space: nowrap;
 }
 
+/* Site subtitle: full-width line under the h1 (flex-basis:100% drops it below
+ * the h1/dateline row on its own line). A plain, muted descriptor. */
+.site-subtitle {
+  flex-basis: 100%;
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
 /* ---------- Category navigation (sticky) ----------
  * Plain links styled as pills (no JS filtering). The bar is a full-width,
  * position:sticky sibling of the header so it pins to the top of the viewport

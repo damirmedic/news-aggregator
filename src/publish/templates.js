@@ -21,6 +21,8 @@ export function esc(str) {
 
 // Site name — used in the masthead h1 and in every page <title>.
 const SITE_NAME = 'Normalne vijesti';
+// Masthead subtitle under the h1 — a plain descriptor of what this site is.
+const SITE_SUBTITLE = 'Test projekt za učenje i privatnu uporabu';
 
 // Category display order + labels. This is the single source of truth for
 // which categories get a homepage section, a nav item, and a /category page.
@@ -122,6 +124,7 @@ function head({ title, depth = 0 }) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Sažeci vijesti bez clickbaita — činjenično, kratko, s izvorom.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
   <title>${esc(title)}</title>
   <link rel="stylesheet" href="${esc(css)}">
 </head>`;
@@ -164,6 +167,7 @@ function masthead({ generatedAt, active = 'all', depth = 0 }) {
     <div class="masthead">
       ${home}
       ${dateline}
+      <p class="site-subtitle">${esc(SITE_SUBTITLE)}</p>
     </div>
   </header>
   ${categoryBar}`;
@@ -175,18 +179,23 @@ function categoryChip(category) {
 }
 
 /**
- * Hotlinked featured image with a visible source credit — never downloaded
- * or rehosted, always attributed. See the CLAUDE.md caveat this deliberately
- * carves out from the "headline + quote only" principle.
+ * Illustrative featured image. Never the source's own photo: it's either a
+ * royalty-free Pexels photo (hotlinked from Pexels' CDN, credited to the
+ * photographer + Pexels) or a self-hosted per-category placeholder (credit
+ * null -> labelled "Ilustracija", since it's decorative, not a photo of the
+ * event). See pipeline/resolveImage.js and CLAUDE.md's image caveat.
  */
 function storyImage(a, { eager = false } = {}) {
   if (!a.imageUrl) return '';
+  const caption = a.imageCredit
+    ? `Foto: <a href="${esc(a.imageCreditUrl || 'https://www.pexels.com')}" rel="noopener noreferrer nofollow" target="_blank">${esc(a.imageCredit)}</a> / <a href="https://www.pexels.com" rel="noopener noreferrer nofollow" target="_blank">Pexels</a>`
+    : 'Ilustracija';
   // The figure carries a pulsing grey skeleton background (CSS); the image sits
   // on top and covers it once loaded. `onload` marks the figure loaded to stop
   // the animation; `onerror` removes the whole figure (no broken-image box).
   return `<figure class="story-image">
     <img src="${esc(a.imageUrl)}" alt="${esc(a.headline)}" loading="${eager ? 'eager' : 'lazy'}" referrerpolicy="no-referrer" onload="this.closest('figure').classList.add('is-loaded')" onerror="this.closest('figure').remove()">
-    <figcaption>Foto: ${esc(a.sourceName)}</figcaption>
+    <figcaption>${caption}</figcaption>
   </figure>`;
 }
 

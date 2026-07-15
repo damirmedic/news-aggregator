@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-label="Zagreb">
+  <rect width="1200" height="675" fill="#f5f1e6"/>
+  <rect x="24" y="24" width="1152" height="627" fill="none" stroke="#8a6d1f" stroke-opacity="0.22" stroke-width="2"/>
+  <rect x="34" y="34" width="1132" height="607" fill="none" stroke="#8a6d1f" stroke-opacity="0.18" stroke-width="1"/>
+  <path d="M556 332 L556 250 L575 198 L594 250 L594 332 Z" fill="none" stroke="#8a6d1f" stroke-width="6" stroke-linejoin="round" stroke-opacity="0.85"/>
+  <path d="M606 332 L606 250 L625 198 L644 250 L644 332 Z" fill="none" stroke="#8a6d1f" stroke-width="6" stroke-linejoin="round" stroke-opacity="0.85"/>
+  <text x="600" y="470" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="88" fill="#8a6d1f" letter-spacing="2">Zagreb</text>
+  <text x="600" y="540" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="22" fill="#8a6d1f" fill-opacity="0.6" letter-spacing="7">NORMALNE VIJESTI</text>
+</svg>
