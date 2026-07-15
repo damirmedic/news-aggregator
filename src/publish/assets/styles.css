@@ -15,6 +15,8 @@
   --zagreb: #8a6d1f;
   --world: #3a4a7a;
   --sport: #a5540f;
+  --skeleton: #e9e7e1; /* skeleton base */
+  --skeleton-hi: #f4f3ef; /* skeleton shimmer highlight */
   --shell: 68rem;
   --read: 44rem;
 }
@@ -32,6 +34,8 @@
     --zagreb: #d4b45a;
     --world: #9aa9e0;
     --sport: #e0a068;
+    --skeleton: #2a2a31;
+    --skeleton-hi: #363641;
   }
 }
 
@@ -85,13 +89,6 @@ main,
   font-style: italic;
   font-size: 0.9rem;
   white-space: nowrap;
-}
-
-.tagline {
-  margin: 0.5rem 0 0.9rem;
-  color: var(--muted);
-  font-style: italic;
-  font-size: 0.95rem;
 }
 
 /* ---------- Category navigation (sticky) ----------
@@ -163,6 +160,10 @@ main,
 .deck { color: var(--muted); margin: 0 0 0.6rem; }
 
 /* ---------- Featured image (hotlinked from source, credited) ---------- */
+/* The img box reserves its 16:9 space via aspect-ratio and shows a pulsing
+ * skeleton background until the image paints on top (object-fit:cover covers
+ * it). `.is-loaded` (set on img's onload) stops the pulse. Reduced-motion gets
+ * a static grey placeholder. */
 .story-image {
   margin: 0 0 0.7rem;
 }
@@ -171,9 +172,11 @@ main,
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  background: var(--line);
+  background: var(--skeleton);
   border: 1px solid var(--line);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
+.story-image.is-loaded img { animation: none; background: var(--line); }
 .story-image figcaption {
   margin-top: 0.3rem;
   font-family: -apple-system, system-ui, sans-serif;
@@ -251,6 +254,58 @@ main,
 }
 .section-more a { color: var(--accent); text-decoration: none; font-weight: 700; }
 .section-more a:hover { text-decoration: underline; }
+
+/*
+ * ---------- Category feed (infinite scroll + date separators) ----------
+ * A uniform grid (1/2/3-up) rather than the homepage's 2-then-3 rule, because
+ * full-width date separators chop the page into day sections where a special
+ * "first row" no longer makes sense. Cards flow into the grid; date separators
+ * and the scroll sentinel span every column.
+ */
+.cat-feed {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.4rem 1.6rem;
+}
+@media (min-width: 640px) { .cat-feed { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 960px) { .cat-feed { grid-template-columns: repeat(3, 1fr); } }
+.cat-feed > .story { padding-top: 1rem; border-top: 1px solid var(--line); }
+.cat-feed > .cat-sentinel { grid-column: 1 / -1; height: 1px; }
+
+/* Date separator: full-width day + date rule between date changes. */
+.date-sep {
+  grid-column: 1 / -1;
+  margin: 0.6rem 0 0.2rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.date-sep:first-child { margin-top: 0; }
+
+/* Infinite reveal: hide not-yet-revealed items ONLY when JS is running, so a
+ * no-JS reader still gets the whole list. */
+.has-js .cat-feed > .story.pending,
+.has-js .cat-feed > .date-sep.pending { display: none; }
+
+/* Skeleton cards flashed while a batch "loads". */
+.skeleton-card { padding-top: 1rem; border-top: 1px solid var(--line); }
+.sk { background: var(--skeleton); border-radius: 3px; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.sk-img { aspect-ratio: 16 / 9; margin-bottom: 0.7rem; }
+.sk-line { height: 0.8rem; margin-bottom: 0.5rem; }
+.sk-line.short { width: 60%; }
+
+@keyframes skeleton-pulse {
+  0%, 100% { background-color: var(--skeleton); }
+  50% { background-color: var(--skeleton-hi); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-image img, .sk { animation: none; }
+}
 
 /* ---------- Article detail page ---------- */
 .article-page { max-width: var(--read); }

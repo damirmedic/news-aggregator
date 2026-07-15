@@ -195,23 +195,29 @@ add a row to `src/sources.js` and re-run `npm run migrate`.
 
 ## Front page layout & navigation
 
-The site is fully static — no client-side JavaScript, navigation is plain
-links.
+Navigation is plain links; the category bar is a sticky, single-row element
+(its own `position:sticky` sibling of the header, so it stays pinned while the
+page scrolls). Pages are server-rendered and work without JavaScript; the
+category feed adds progressive enhancement on top.
 
 - **`index.html`** is a sectioned overview: a mixed **Najnovije** strip (the 8
   newest across all categories) followed by one section per category
   (Hrvatska / Zagreb / Svijet / Sport), each showing its 8 newest and ending
   in a *"Pročitaj sve vijesti u kategoriji …"* link to the full category page.
+  Each homepage grid uses the **first row 2 cards, every following row 3**
+  rule (2-up tablet, 1-up mobile) via `:nth-child`; no "hero" card, the grid
+  decides sizing.
 - **`category/<cat>.html`** lists every article in that category (within the
-  retention window). The masthead nav links to these pages and highlights the
-  active one.
-
-Every grid — homepage sections and category pages alike — uses the same
-`.story-grid` rule (`src/publish/templates.js` + `styles.css`): **first row 2
-cards, every following row 3** on desktop (2-up tablet, 1-up mobile). There's
-no "hero" card; the grid, not the card, decides sizing, and because each grid
-holds a contiguous set of cards (nothing hidden client-side), the `:nth-child`
-rule that widens the first two cards always targets the real first row.
+  retention window), newest-first, in a uniform 1/2/3-up grid. Two behaviors
+  here (`src/publish/templates.js` → `categoryFeed` / `catFeedScript`):
+  - **Date separators**: a full-width day + date row is inserted wherever the
+    Zagreb-local day changes, so older news is visibly grouped.
+  - **Infinite reveal**: the first `CAT_INITIAL` (11) cards show at load, then
+    `CAT_BATCH` (9) more are revealed each time the reader nears the bottom
+    (IntersectionObserver), flashing grey skeleton cards during the brief load.
+    Everything is server-rendered; the script only toggles visibility, so with
+    no JS the whole list renders (nothing is hidden). Featured images also show
+    a pulsing skeleton until they load, site-wide.
 
 ## Deployment (trial hosting)
 

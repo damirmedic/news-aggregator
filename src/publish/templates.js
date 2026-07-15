@@ -19,6 +19,9 @@ export function esc(str) {
     .replace(/'/g, '&#39;');
 }
 
+// Site name — used in the masthead h1 and in every page <title>.
+const SITE_NAME = 'Normalne vijesti';
+
 // Category display order + labels. This is the single source of truth for
 // which categories get a homepage section, a nav item, and a /category page.
 export const CATEGORIES = ['hrvatska', 'zagreb', 'svijet', 'sport'];
@@ -26,6 +29,11 @@ export const CATEGORY_LABEL = { hrvatska: 'Hrvatska', zagreb: 'Zagreb', svijet: 
 
 // How many articles each homepage section shows (1 row of 2 + 2 rows of 3).
 const SECTION_SIZE = 8;
+
+// Category-page infinite reveal: show this many at load, then this many more
+// each time the reader scrolls near the bottom (see categoryFeed / catFeedScript).
+const CAT_INITIAL = 11;
+const CAT_BATCH = 9;
 
 const HR_MONTHS = [
   'siječnja', 'veljače', 'ožujka', 'travnja', 'svibnja', 'lipnja',
@@ -78,6 +86,15 @@ function formatDateTime(iso) {
   return `${p(day)}.${p(month)}.${year}. ${p(hour)}:${p(minute)}`;
 }
 
+/** Zagreb-local calendar day as "YYYY-MM-DD" — the grouping key for date separators. */
+function zagrebDateKey(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const { year, month, day } = zagrebParts(d);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${year}-${p(month)}-${p(day)}`;
+}
+
 /** Split plain body text (blank-line paragraphs) into an array of paragraphs. */
 function paragraphs(body) {
   return String(body)
@@ -120,8 +137,8 @@ function masthead({ generatedAt, active = 'all', depth = 0 }) {
   const prefix = prefixFor(depth);
   const homeHref = `${prefix}index.html`;
   const home = active === 'all'
-    ? '<h1>Vijesti — bez clickbaita</h1>'
-    : `<h1><a href="${esc(homeHref)}">Vijesti — bez clickbaita</a></h1>`;
+    ? `<h1>${esc(SITE_NAME)}</h1>`
+    : `<h1><a href="${esc(homeHref)}">${esc(SITE_NAME)}</a></h1>`;
   const dateline = generatedAt
     ? `<p class="dateline">${esc(croatianDateLong(generatedAt))}</p>`
     : '';
@@ -148,7 +165,6 @@ function masthead({ generatedAt, active = 'all', depth = 0 }) {
       ${home}
       ${dateline}
     </div>
-    <p class="tagline">Kratki, činjenični sažeci. Uvijek s poveznicom na izvor.</p>
   </header>
   ${categoryBar}`;
 }
@@ -165,22 +181,31 @@ function categoryChip(category) {
  */
 function storyImage(a, { eager = false } = {}) {
   if (!a.imageUrl) return '';
+  // The figure carries a pulsing grey skeleton background (CSS); the image sits
+  // on top and covers it once loaded. `onload` marks the figure loaded to stop
+  // the animation; `onerror` removes the whole figure (no broken-image box).
   return `<figure class="story-image">
-    <img src="${esc(a.imageUrl)}" alt="${esc(a.headline)}" loading="${eager ? 'eager' : 'lazy'}" referrerpolicy="no-referrer" onerror="this.closest('figure').remove()">
+    <img src="${esc(a.imageUrl)}" alt="${esc(a.headline)}" loading="${eager ? 'eager' : 'lazy'}" referrerpolicy="no-referrer" onload="this.closest('figure').classList.add('is-loaded')" onerror="this.closest('figure').remove()">
     <figcaption>Foto: ${esc(a.sourceName)}</figcaption>
   </figure>`;
 }
 
 /**
- * A story card. Uniform everywhere — the grid, not the card, decides sizing
- * (first row 2-up, then 3-up). `prefix` resolves the detail-page link relative
- * to the page the card is rendered on (homepage vs. /category).
+ * A story card. `prefix` resolves the detail-page link relative to the page
+ * the card is on. On category pages the extra args wire up infinite scroll:
+ * `idx` is the card's global position, `pending` hides it until revealed (only
+ * takes visual effect once JS marks the page — see the category feed script).
  */
-function storyCard(a, { eager = false, prefix = '' } = {}) {
+function storyCard(a, { eager = false, prefix = '', idx = null, pending = false } = {}) {
   const href = `${prefix}article/${a.id}.html`;
   const sub = a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : '';
+  const attrs = [
+    `class="story${pending ? ' pending' : ''}"`,
+    `data-category="${esc(a.category)}"`,
+    idx !== null ? `data-idx="${idx}"` : '',
+  ].filter(Boolean).join(' ');
   return `
-<article class="story" data-category="${esc(a.category)}">
+<article ${attrs}>
   ${storyImage(a, { eager })}
   <div class="meta">${categoryChip(a.category)}<time datetime="${esc(a.publishedAt)}">${esc(formatDateTime(a.publishedAt))}</time></div>
   <h3><a href="${esc(href)}">${esc(a.headline)}</a></h3>
@@ -243,7 +268,7 @@ export function frontPage({ articles, generatedAt }) {
 
   return `<!doctype html>
 <html lang="hr">
-${head({ title: 'Vijesti — bez clickbaita' })}
+${head({ title: SITE_NAME })}
 <body>
   ${masthead({ generatedAt, active: 'all', depth: 0 })}
   <main>
@@ -256,20 +281,103 @@ ${head({ title: 'Vijesti — bez clickbaita' })}
 }
 
 /**
- * A full category page: every article in one category, newest-first, in the
- * same 2-then-3 grid used everywhere else. Lives at public/category/{key}.html
- * (depth 1), so links back up use a "../" prefix.
+ * Category feed: all articles newest-first, uniform responsive grid, with a
+ * full-width date separator inserted wherever the Zagreb-local day changes.
+ * Each card carries a global `data-idx`; cards past `CAT_INITIAL` are marked
+ * `pending` (revealed on scroll by catFeedScript). A date separator records the
+ * index of its first card so it can be revealed together with it. With no
+ * JavaScript, nothing is hidden — the whole list renders.
+ */
+function categoryFeed(articles, { prefix }) {
+  const parts = [];
+  let dayKey = null;
+  let idx = 0;
+  for (const a of articles) {
+    const dk = zagrebDateKey(a.publishedAt);
+    if (dk !== dayKey) {
+      dayKey = dk;
+      const pending = idx >= CAT_INITIAL ? ' pending' : '';
+      parts.push(`<div class="date-sep${pending}" data-first-idx="${idx}">${esc(croatianDateLong(a.publishedAt))}</div>`);
+    }
+    parts.push(storyCard(a, { eager: idx < 3, prefix, idx, pending: idx >= CAT_INITIAL }));
+    idx++;
+  }
+  return `<div class="cat-feed" data-initial="${CAT_INITIAL}" data-batch="${CAT_BATCH}">
+${parts.join('\n')}
+<div class="cat-sentinel" aria-hidden="true"></div>
+</div>`;
+}
+
+/**
+ * Client script for the category feed: progressively reveals `pending` cards
+ * (and their date separators) in batches as the reader nears the bottom,
+ * flashing grey skeleton cards during the brief load. Pure DOM, no fetching —
+ * every card is already server-rendered; this only toggles visibility.
+ */
+function catFeedScript() {
+  return `<script>
+(function () {
+  var feed = document.querySelector('.cat-feed');
+  if (!feed || !('IntersectionObserver' in window)) return;
+  document.documentElement.classList.add('has-js');
+  var batch = +feed.dataset.batch || 9;
+  var cards = [].slice.call(feed.querySelectorAll('.story'));
+  var seps = [].slice.call(feed.querySelectorAll('.date-sep'));
+  var sentinel = feed.querySelector('.cat-sentinel');
+  var total = cards.length;
+  var limit = +feed.dataset.initial || 11;
+  var loading = false;
+
+  function apply() {
+    cards.forEach(function (c) { c.classList.toggle('pending', +c.dataset.idx >= limit); });
+    seps.forEach(function (s) { s.classList.toggle('pending', +s.dataset.firstIdx >= limit); });
+  }
+  function done() { return limit >= total; }
+  function skeleton() {
+    var d = document.createElement('div');
+    d.className = 'skeleton-card';
+    d.setAttribute('aria-hidden', 'true');
+    d.innerHTML = '<div class="sk sk-img"></div><div class="sk sk-line"></div><div class="sk sk-line short"></div>';
+    return d;
+  }
+  apply();
+  if (done()) { sentinel.remove(); return; }
+
+  var io = new IntersectionObserver(function (entries) {
+    if (!entries[0].isIntersecting || loading || done()) return;
+    loading = true;
+    var n = Math.min(batch, total - limit);
+    var skels = [];
+    for (var i = 0; i < n; i++) { var s = skeleton(); feed.insertBefore(s, sentinel); skels.push(s); }
+    setTimeout(function () {
+      skels.forEach(function (s) { s.remove(); });
+      limit += batch;
+      apply();
+      loading = false;
+      if (done()) io.disconnect();
+    }, 550);
+  }, { rootMargin: '400px 0px' });
+  io.observe(sentinel);
+})();
+</script>`;
+}
+
+/**
+ * A full category page. Lives at public/category/{key}.html (depth 1), so links
+ * back up use a "../" prefix. The article list infinite-scrolls (see
+ * categoryFeed / catFeedScript) and shows date separators.
  */
 export function categoryPage({ categoryKey, articles, generatedAt }) {
   const label = CATEGORY_LABEL[categoryKey] || categoryKey;
   const body = articles.length
-    ? storyGrid(articles, { eagerCount: 3, prefix: '../' })
+    ? categoryFeed(articles, { prefix: '../' })
     : '<p class="empty">Trenutačno nema vijesti u ovoj kategoriji.</p>';
 
   return `<!doctype html>
 <html lang="hr">
-${head({ title: `${label} — Vijesti`, depth: 1 })}
+${head({ title: `${label} — ${SITE_NAME}`, depth: 1 })}
 <body>
+  <script>document.documentElement.className += ' has-js';</script>
   ${masthead({ generatedAt, active: categoryKey, depth: 1 })}
   <main>
     <section class="feed-section">
@@ -278,6 +386,7 @@ ${head({ title: `${label} — Vijesti`, depth: 1 })}
     </section>
   </main>
   ${siteFooter({ count: articles.length, generatedAt })}
+  ${articles.length ? catFeedScript() : ''}
 </body>
 </html>
 `;
@@ -287,7 +396,7 @@ ${head({ title: `${label} — Vijesti`, depth: 1 })}
 export function articlePage({ article: a, generatedAt }) {
   return `<!doctype html>
 <html lang="hr">
-${head({ title: `${a.headline} — Vijesti`, depth: 1 })}
+${head({ title: `${a.headline} — ${SITE_NAME}`, depth: 1 })}
 <body>
   ${masthead({ generatedAt, active: null, depth: 1 })}
   <main class="article-page">
