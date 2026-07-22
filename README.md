@@ -126,6 +126,14 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
    already-played first leg's stadium), and final / third-place kickoff times
    printed with no day. Also prompt-enforced (extraction binds the detail into
    the fact string; the writer must not detach it).
+
+   One **completeness** rule joins these anti-invention ones: for a match that
+   has been *played*, the result is required — captured in `numbers[]` as the
+   source states it and included by the writer, scoreless draws included ("0:0"
+   is a result, not a missing value). This closes a gap with the numeric guard:
+   a score never captured into the facts gets omitted by the closed-world
+   writer, and if the writer added it anyway `verify.js` would strip it as
+   unsupported — so the fix is to make the score reach the facts.
 5c. **Illustrative image** (`src/pipeline/resolveImage.js`): the source's own
    photo is never used. Instead the summary step also emits a short *English*
    `imageQuery` naming the story's visual theme (never shown to readers), which

@@ -92,7 +92,15 @@ itself.
    times (a time without its day reads as "today") and no bare venues (keep
    home/away + which leg). Both observed live: a return leg the team plays
    *away* rendered as played "na Poljudu" — the first leg's venue; and final /
-   third-place kickoff times printed with no day.)
+   third-place kickoff times printed with no day.) (**Also 2026-07-16 — a
+   completeness rule, not an anti-invention one:** for a match that has been
+   *played*, the result is a REQUIRED fact — captured in `numbers` as the source
+   states it and reflected in `what`, including scoreless draws ("0:0" is a
+   result, not a missing value). Observed live: a "prva utakmica odigrana"
+   report that dropped the 0:0 final score, leaving a match report with no
+   outcome. This interacts with the numeric guard: an uncaptured score makes the
+   writer's closed-world rules omit it, and had the writer added it anyway,
+   verify.js would strip it as unsupported — so the score must reach the facts.)
 5. **Write summary (LLM call 2):** From the structured facts (not the
    original text), generate:
    - Headline (plain, factual, ≤ ~12 words)
