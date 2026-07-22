@@ -31,15 +31,26 @@ export function startServer({ port = config.server.port } = {}) {
       return;
     }
 
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
+    // Clean URLs: article links have no extension (/article/<slug>), so an
+    // extensionless miss retries as "<path>.html" — the same mapping Cloudflare
+    // Pages does in production.
+    const candidates = path.extname(filePath)
+      ? [filePath]
+      : [filePath, `${filePath}.html`];
+
+    const tryNext = (i) => {
+      if (i >= candidates.length) {
         res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end('<h1>404</h1><p>Not found. Have you run <code>npm run ingest</code>?</p>');
         return;
       }
-      res.writeHead(200, { 'Content-Type': MIME[path.extname(filePath)] || 'application/octet-stream' });
-      res.end(data);
-    });
+      fs.readFile(candidates[i], (err, data) => {
+        if (err) return tryNext(i + 1);
+        res.writeHead(200, { 'Content-Type': MIME[path.extname(candidates[i])] || 'application/octet-stream' });
+        res.end(data);
+      });
+    };
+    tryNext(0);
   });
 
   server.listen(port, () => {

@@ -97,6 +97,53 @@ function zagrebDateKey(iso) {
   return `${year}-${p(month)}-${p(day)}`;
 }
 
+// Longest the handleized-title part of an article slug may get; the slug is cut
+// on a word boundary at this length so URLs stay short and readable. The publish
+// date (always ~11 chars) is appended after this, so total stays well bounded.
+const SLUG_MAX_CHARS = 60;
+
+/**
+ * URL-safe slug of a string: transliterate Croatian diacritics (š→s, č/ć→c,
+ * ž→z, đ→d), lowercase, collapse every run of non-alphanumerics to a single
+ * hyphen, trim. "Prešao iz Aston Ville" → "presao-iz-aston-ville".
+ */
+function slugify(text) {
+  return String(text ?? '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip combining marks (š/č/ž/ć)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Truncate a hyphenated slug to `max` chars on a word (hyphen) boundary. Only
+ * when it actually truncates does it also drop a severed trailing bare number
+ * or 1–2 letter connector ("...chelsea-za-117" → "...chelsea") — an untruncated
+ * slug is left exactly as-is, so a title ending in a score ("rezultat-2-1")
+ * keeps its digits.
+ */
+function truncateOnWord(slug, max) {
+  if (slug.length <= max) return slug;
+  const cut = slug.slice(0, max);
+  const lastHyphen = cut.lastIndexOf('-');
+  let out = lastHyphen > 0 ? cut.slice(0, lastHyphen) : cut;
+  let prev;
+  do { prev = out; out = out.replace(/-(?:\d+|[a-z]{1,2})$/, ''); } while (out !== prev);
+  return out.replace(/-+$/, '');
+}
+
+/**
+ * Base article URL slug: handleized headline + Zagreb-local publish date, e.g.
+ * "morgan-rogers-presao-iz-aston-ville-u-chelsea-2026-07-22". Deterministic;
+ * ensuring it's unique across a build is the caller's job (generate.js).
+ */
+export function articleSlug(headline, publishedAtIso) {
+  const title = truncateOnWord(slugify(headline), SLUG_MAX_CHARS) || 'clanak';
+  const date = zagrebDateKey(publishedAtIso);
+  return date ? `${title}-${date}` : title;
+}
+
 /** Split plain body text (blank-line paragraphs) into an array of paragraphs. */
 function paragraphs(body) {
   return String(body)
@@ -206,7 +253,7 @@ function storyImage(a, { eager = false } = {}) {
  * takes visual effect once JS marks the page — see the category feed script).
  */
 function storyCard(a, { eager = false, prefix = '', idx = null, pending = false } = {}) {
-  const href = `${prefix}article/${a.id}.html`;
+  const href = `${prefix}article/${a.slug}`;
   const sub = a.subheadline ? `<p class="deck">${esc(a.subheadline)}</p>` : '';
   const attrs = [
     `class="story${pending ? ' pending' : ''}"`,
