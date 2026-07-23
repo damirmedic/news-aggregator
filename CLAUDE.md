@@ -101,6 +101,13 @@ itself.
    outcome. This interacts with the numeric guard: an uncaptured score makes the
    writer's closed-world rules omit it, and had the writer added it anyway,
    verify.js would strip it as unsupported — so the score must reach the facts.)
+   (**Amended 2026-07-23:** the article's own *publication* timestamp must never
+   be recorded as the event time. `when` is filled only when the article states
+   when the EVENT happened, in event terms; a bare to-the-minute stamp ("u
+   23:25", "u 09:29 sati") — especially one matching when the piece was posted —
+   is publish metadata and sets `when` to null. Both observed live: an ISS
+   "vidljiv … u 23:25" and an assault "dogodio se … u 09:29", each printing the
+   article's publish time as the moment of the event.)
 5. **Write summary (LLM call 2):** From the structured facts (not the
    original text), generate:
    - Headline (plain, factual, ≤ ~12 words)

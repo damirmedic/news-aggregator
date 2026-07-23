@@ -134,6 +134,14 @@ One ingestion cycle (`npm run ingest`, or hourly at the top of the hour under
    a score never captured into the facts gets omitted by the closed-world
    writer, and if the writer added it anyway `verify.js` would strip it as
    unsupported — so the fix is to make the score reach the facts.
+
+   A related **publication-time** rule keeps the article's own byline/publish
+   timestamp out of the event facts: `when` is filled only when the article
+   states when the *event* happened (in event terms), and a bare to-the-minute
+   stamp — especially one matching when the piece was posted — is treated as
+   metadata and dropped. Observed live: an ISS sighting "vidljiv … u 23:25" and
+   an assault "dogodio se … u 09:29", each printing the article's publish time
+   as the moment of the event.
 5c. **Illustrative image** (`src/pipeline/resolveImage.js`): the source's own
    photo is never used. Instead the summary step also emits a short *English*
    `imageQuery` naming the story's visual theme (never shown to readers), which
