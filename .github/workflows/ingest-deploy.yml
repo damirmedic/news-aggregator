@@ -29,12 +29,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          # Node 22 (LTS): off the now-deprecated Node 20, and within
+          # better-sqlite3 ^11.7's prebuilt range (it has no reliable Node 24
+          # prebuild yet, so 22 avoids a source compile).
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -66,18 +69,16 @@ jobs:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: node src/index.js ingest
 
+      # cloudflare/pages-action@v1 is archived/deprecated (stuck on Node 20 and
+      # unmaintained), so we deploy via Cloudflare's current wrangler-action.
+      # `--branch=master` targets the project's production branch (set in the
+      # Pages dashboard) so this publishes to production, not a preview.
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: no-clickbait-news-aggregator
-          directory: public
-          # gitHubToken intentionally omitted: it's only used to post a GitHub
-          # "Deployment" status back to the commit/PR UI, which needs a
-          # deployments:write permission we don't otherwise need for a
-          # personal, non-PR workflow. Omitting it skips that optional step
-          # entirely rather than widening the token's permissions.
+          command: pages deploy public --project-name=no-clickbait-news-aggregator --branch=master
 
       # Snapshot-only: each run force-pushes a single fresh commit, so the
       # `data` branch never accumulates history (the app's own retention is
